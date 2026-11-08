@@ -83,6 +83,11 @@ img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 .bbar{height:16px;border-radius:999px;background:#eef3f1;overflow:hidden}.bbar i{display:block;height:100%;background:linear-gradient(90deg,var(--c1),var(--c2));border-radius:999px}
 @media (max-width:600px){.brow{grid-template-columns:40px 36px minmax(0,1fr) auto}.bbar{display:none}}
 @media print{.hero,.noprint,.foot,.toast,.wrap>section:not(#saved){display:none!important}.printonly{display:block}#saved{box-shadow:none;border:0}body{background:#fff}}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:8px 12px;box-shadow:0 1px 2px rgb(0 0 0/.04)}
+.tb-t{font-family:var(--display);font-weight:700;color:var(--c1)}
+.tbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-weight:800;border-radius:14px;padding:8px 18px;color:#fff;background:linear-gradient(110deg,var(--c1),var(--c2));box-shadow:0 4px 12px rgb(0 0 0/.15)}
+.tbtn.ghost{background:#eef3f1;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+@media print{.topbar{display:none!important}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -113,7 +118,7 @@ let P=LS.get('me',{});
 let step=0;
 function vStart(){
  const L=P.l!=null?LESSONS[P.l]:null;theme(L);
- let h=hero(L);
+ let h='<nav class="topbar"><span class="tb-t">🤝 موقع الأنشطة الجماعية</span><a class="tbtn" href="#teacher">👩‍🏫 لوحة المعلمة</a></nav>'+hero(L);
  if(!SB)h+='<div class="card" style="border-color:var(--bad)"><b>⚠️ تعذّر الاتصال بخدمة الحل المباشر.</b><p class="muted">تأكدي من اتصال الإنترنت ثم حدّثي الصفحة.</p></div>';
  h+='<section class="card">';
  if(step===0){h+='<h2 class="sec">١ · اختاري النشاط</h2><div class="grid">'+LESSONS.map((l,i)=>'<button class="opt" data-l="'+i+'" aria-pressed="'+(P.l===i)+'"><span class="e">'+l.emoji+'</span>'+l.title+'</button>').join('')+'</div>'}
@@ -215,7 +220,7 @@ function vBoard(){const L=LESSONS[T.l],max=L.parts.reduce((a,p)=>a+PM(p),0),toda
 function helpHTML(g,d){return d&&d.help&&Date.now()-d.help<15*60000?'<div class="fb no row" style="justify-content:space-between">✋ تطلب مساعدة<button class="btn ghost" data-hok="'+g+'" style="padding:2px 12px">رحت لهم ✓</button></div>':''}
 function vTeacher(){const L=LESSONS[T.l];theme(L);
  if(T.ok&&T.board)return vBoard();
- let h=hero(L,'📋 لوحة المعلمة: تتابعين المجموعات وهي تحل مباشرة');
+ let h='<nav class="topbar"><span class="tb-t">👩‍🏫 لوحة المعلمة</span><a class="tbtn ghost" href="#">🏠 صفحة الطالبات</a></nav>'+hero(L,'📋 لوحة المعلمة: تتابعين المجموعات وهي تحل مباشرة');
  if(!T.ok){return h+'<section class="card"><label for="tc" style="font-weight:800">رمز المعلمة</label><input id="tc" inputmode="numeric" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn" data-tok>دخول</button><a class="btn ghost" href="#" style="text-decoration:none">رجوع</a></div></section>'+foot}
  h+='<section class="card"><div class="row"><label style="font-weight:800" for="tl">النشاط</label><select id="tl" style="width:auto">'+LESSONS.map((l,i)=>'<option value="'+i+'"'+(i===T.l?' selected':'')+'>'+l.title+'</option>').join('')+'</select><label style="font-weight:800" for="tcls">الشعبة</label><select id="tcls" style="width:auto">'+CLASSES.map(c=>'<option value="'+c+'"'+(c===T.c?' selected':'')+'>'+AR(c)+'</option>').join('')+'</select><button class="btn ghost" data-ping>🔄 تحديث</button><button class="btn" data-board>🏆 لوحة الشرف (للعرض)</button></div><p class="muted" style="font-size:.85rem">تظهر هنا المجموعات المفتوحة الآن على أجهزة الطالبات. النتائج تنحفظ تلقائيًا عند كل تصحيح، وتلقينها تحت في «النتائج المحفوظة».</p></section>';
  const max=L.parts.reduce((a,p)=>a+PM(p),0);
