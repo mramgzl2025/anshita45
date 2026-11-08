@@ -88,6 +88,10 @@ img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 .tbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;font-weight:800;border-radius:14px;padding:8px 18px;color:#fff;background:linear-gradient(110deg,var(--c1),var(--c2));box-shadow:0 4px 12px rgb(0 0 0/.15)}
 .tbtn.ghost{background:#eef3f1;color:var(--ink);border:1px solid var(--line);box-shadow:none}
 @media print{.topbar{display:none!important}}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
+.prog{height:14px;border-radius:999px;background:#eef3f1;overflow:hidden}.prog i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--c1),var(--c2));transition:width .6s}
+.star{background:#fffbeb;border:1px dashed var(--sun);border-radius:12px;padding:4px 12px;font-size:.92rem}
+.mini{display:flex;flex-direction:column;gap:6px}.mrank{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:4px 12px}.mrank.me{border:2px solid var(--c1);background:#eefbf3;font-weight:800}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -136,11 +140,11 @@ function joinRoom(){
  if(!SB){render();return}
  ch=SB.channel(roomId(),{config:{broadcast:{self:false},presence:{key:P.n+'|'+Math.random().toString(36).slice(2,7)}}});
  ch.on('presence',{event:'sync'},()=>{const st=ch.presenceState();const fl=Object.values(st).flat();peers=fl.map(x=>x.name);PA=fl.map(x=>({n:x.name,at:x.at||0}));renderMembers();sendProg()})
-   .on('broadcast',{event:'state'},({payload})=>{if(payload&&payload.v>G.v){const prevPart=G.part;G=payload;norm();LS.set('st_'+roomId(),G);if(G.by&&G.by!==P.n)toast('✏️ '+first(G.by)+' عدّلت');render(prevPart!==G.part)}})
+   .on('broadcast',{event:'state'},({payload})=>{if(payload&&payload.v>G.v){const prevPart=G.part,nd=Object.keys(payload.done||{}).filter(k=>G.done[k]==null);G=payload;norm();if(nd.length)setTimeout(()=>celebrate(nd.some(k=>payload.done[k]===PM(LESSONS[P.l].parts[k]))),60);LS.set('st_'+roomId(),G);if(G.by&&G.by!==P.n)toast('✏️ '+first(G.by)+' عدّلت');render(prevPart!==G.part)}})
    .on('broadcast',{event:'hello'},()=>{if(G.v>0)ch.send({type:'broadcast',event:'state',payload:G})})
    .subscribe(async s=>{online=s==='SUBSCRIBED';renderMembers();if(online){await ch.track({name:P.n,at:JOIN_AT});ch.send({type:'broadcast',event:'hello',payload:{}})}});
- lobby=SB.channel(lobbyId(),{config:{broadcast:{self:false}}});
- lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED')sendProg()});
+ OTH={};lobby=SB.channel(lobbyId(),{config:{broadcast:{self:false}}});
+ lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'prog'},({payload})=>{if(payload&&payload.g&&payload.g!==P.g){OTH[payload.g]={s:Object.values(payload.done||{}).reduce((a,b)=>a+b,0),t:Date.now()};const el=document.getElementById('rank');if(el)el.innerHTML=rankHTML()}}).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED'){sendProg();try{lobby.send({type:'broadcast',event:'ping',payload:{}})}catch(e){}}});
  render()}
 function leaveRoom(){try{ch&&SB.removeChannel(ch);lobby&&SB.removeChannel(lobby)}catch(e){}ch=null;lobby=null;peers=[];online=false}
 function commit(){G.v=Date.now();G.by=P.n;LS.set('st_'+roomId(),G);if(ch&&online)ch.send({type:'broadcast',event:'state',payload:G});sendProg()}
@@ -156,15 +160,26 @@ function saveRes(i,sc,mx){if(!SB)return;const pr=present(),c={};pr.concat(Object
  SB.rpc('anshita_save2',{p_lesson:LESSONS[P.l].key,p_cls:P.c,p_grp:P.g,p_part:i,p_score:sc,p_max:mx,p_members:pr.slice(0,12),p_contrib:c}).then(({error})=>{if(error){console.warn(error);toast('⚠️ تعذّر حفظ النتيجة، جربن التصويت مرة ثانية')}else toast('💾 انحفظت نتيجة المجموعة')})}
 function voteBtn(i,full){const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length,me=!!v[P.n];
  return '<button class="btn" data-check'+(full?'':' disabled')+'>'+(me?'✔ وافقتِ':'🗳️ أوافق على الإجابات')+' ('+AR(yes)+' من '+AR(need)+')</button>'+(full?(yes?'<span class="muted">وافقت: '+pr.filter(n=>v[n]).map(n=>esc(first(n))).join('، ')+'</span>':'<span class="muted">التصحيح يتم لما توافق أغلب المجموعة</span>'):'<span class="muted">أكملن كل الإجابات أولًا</span>')}
+let OTH={};
+const ORD=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن'];
+function starOf(){const c=G&&G.contrib||{};let b=null,m=0;present().forEach(n=>{if((c[n]||0)>m){m=c[n];b=n}});return b}
+function chime(big){try{const A=window.__ac||(window.__ac=new(window.AudioContext||window.webkitAudioContext)());if(A.state==='suspended')A.resume();(big?[523,659,784,1047]:[523,659,784]).forEach((f,k)=>{const o=A.createOscillator(),g=A.createGain(),t0=A.currentTime+k*.12;o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.18,t0+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+.4);o.connect(g).connect(A.destination);o.start(t0);o.stop(t0+.45)})}catch(e){}}
+function celebrate(big){chime(big);try{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=document.createElement('canvas');c.className='confetti';c.width=innerWidth;c.height=innerHeight;document.body.appendChild(c);const x=c.getContext('2d'),cols=['#f59e0b','#10b981','#3b82f6','#ec4899','#8b5cf6','#ef4444'],ps=[...Array(big?170:80)].map(()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.6,vx:(Math.random()-.5)*4,vy:2+Math.random()*4,r:4+Math.random()*5,a:Math.random()*6,c:cols[Math.floor(Math.random()*cols.length)]}));let f=0;(function st(){x.clearRect(0,0,c.width,c.height);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.05;p.a+=.12;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.fillRect(-p.r,-p.r/2,p.r*2,p.r);x.restore()});if(++f<180)requestAnimationFrame(st);else c.remove()})()}catch(e){}}
+function progHTML(){const L=LESSONS[P.l],dn=Object.keys(G.done).length,np=L.parts.length;return '<div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="'+np+'" aria-valuenow="'+dn+'"><i style="width:'+Math.round(dn/np*100)+'%"></i></div><p style="font-weight:800">'+(dn===np?'🎉 أنهيتنّ النشاط كامل! ما شاء الله عليكن':'🚀 خلصتنّ '+AR(dn)+' من '+AR(np)+' أجزاء')+'</p>'}
+function rankHTML(){const L=LESSONS[P.l],me=Object.values(G.done).reduce((a,b)=>a+b,0),now=Date.now();const all=Object.entries(OTH).filter(([g,o])=>now-o.t<40*60000).map(([g,o])=>({g:+g,s:o.s}));all.push({g:P.g,s:me});all.sort((a,b)=>b.s-a.s||a.g-b.g);
+ if(all.length<2)return '<h2 class="sec">🏁 ترتيب المجموعات</h2><p class="muted">لما تبدأ المجموعات الثانية بالحل يطلع ترتيبكم هنا.</p>';
+ const rk=all.filter(x=>x.s>me).length,med=['🥇','🥈','🥉'];
+ return '<h2 class="sec">🏁 ترتيب مجموعتكم الآن: '+(med[rk]||'')+' '+(ORD[rk]||AR(rk+1))+' من '+AR(all.length)+'</h2><div class="mini">'+all.map(x=>{const r=all.filter(y=>y.s>x.s).length,t=L.teams[x.g-1]||['مجموعة '+AR(x.g),'👥'];return '<div class="mrank'+(x.g===P.g?' me':'')+'"><span>'+(med[r]||AR(r+1))+'</span><span>'+t[1]+' '+t[0]+'</span><b>'+AR(x.s)+'</b></div>'}).join('')+'</div>'}
 function membersHTML(){const L=LESSONS[P.l],t=L.teams[P.g-1];const list=[...new Set(peers.length?peers:[P.n])];
- const rl=roleMap(),my=ROLES[rl[P.n]??0],hp=G&&G.help&&Date.now()-G.help<15*60000;
- return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi></b><span class="status '+(online?'on">● متصلة مباشرة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+list.map(n=>{const r=ROLES[rl[n]??0];return '<span class="mem'+(n===P.n?' me':'')+'" title="'+r[1]+'"><i></i>'+r[0]+' '+esc(n)+(n===P.n?' (أنتِ)':'')+'</span>'}).join('')+'</div><div class="role"><span class="re">'+my[0]+'</span><div><b>دورك: '+my[1]+'</b><div class="muted" style="font-size:.85rem">'+my[2]+'</div></div></div><div class="row" style="justify-content:space-between"><p class="muted" style="font-size:.85rem">الموجودات الآن: '+AR(list.length)+' · أي إجابة تختارها واحدة تظهر عند الجميع، والتصحيح يتم بموافقة أغلب المجموعة.</p><button class="btn '+(hp?'help on':'ghost help')+'" data-help>'+(hp?'✋ طلبتنّ المساعدة… (إلغاء)':'✋ نحتاج مساعدة')+'</button></div>'}
+ const rl=roleMap(),st=starOf(),my=ROLES[rl[P.n]??0],hp=G&&G.help&&Date.now()-G.help<15*60000;
+ return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi></b><span class="status '+(online?'on">● متصلة مباشرة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+list.map(n=>{const r=ROLES[rl[n]??0];return '<span class="mem'+(n===P.n?' me':'')+'" title="'+r[1]+'"><i></i>'+r[0]+' '+esc(n)+(n===P.n?' (أنتِ)':'')+(n===st?' 🌟':'')+'</span>'}).join('')+'</div>'+(st?'<p class="star">🌟 نجمة المشاركة الآن: <b>'+esc(st)+'</b>'+(st===P.n?' — هذي أنتِ، كمّلي! 💪':' — شاركن مثلها!')+'</p>':'')+'<div class="role"><span class="re">'+my[0]+'</span><div><b>دورك: '+my[1]+'</b><div class="muted" style="font-size:.85rem">'+my[2]+'</div></div></div><div class="row" style="justify-content:space-between"><p class="muted" style="font-size:.85rem">الموجودات الآن: '+AR(list.length)+' · أي إجابة تختارها واحدة تظهر عند الجميع، والتصحيح يتم بموافقة أغلب المجموعة.</p><button class="btn '+(hp?'help on':'ghost help')+'" data-help>'+(hp?'✋ طلبتنّ المساعدة… (إلغاء)':'✋ نحتاج مساعدة')+'</button></div>'}
 function renderMembers(){const el=document.getElementById('mem');if(el)el.innerHTML=membersHTML()}
 function vRoom(){const L=LESSONS[P.l];theme(L);
  let h=hero(L)+'<section class="card" id="mem">'+membersHTML()+'</section>';
  if(G.part==null){
   const tot=Object.values(G.done).reduce((a,b)=>a+b,0),max=L.parts.reduce((a,p)=>a+PM(p),0);
-  h+='<section class="card"><div class="row" style="justify-content:space-between"><h2 class="sec">أجزاء النشاط</h2><span class="status on" style="background:#eef3f1;color:var(--ink)">درجة المجموعة: '+AR(tot)+' من '+AR(max)+'</span></div><p class="muted">اختاروا جزءًا معًا، وسيفتح عند كل أعضاء المجموعة.</p><div class="parts">'+L.parts.map((p,i)=>{const d=G.done[i];return '<button class="part'+(d!=null?' done':'')+'" style="--pc:'+p.color+'" data-p="'+i+'"><span class="e">'+p.e+'</span><small>الجزء '+AR(i+1)+'</small><b>'+p.t+'</b><small>'+(d!=null?'✓ '+AR(d)+' من '+AR(PM(p)):AR(PM(p))+' درجات')+'</small></button>'}).join('')+'</div></section>';
+  h+='<section class="card"><div class="row" style="justify-content:space-between"><h2 class="sec">أجزاء النشاط</h2><span class="status on" style="background:#eef3f1;color:var(--ink)">درجة المجموعة: '+AR(tot)+' من '+AR(max)+'</span></div>'+progHTML()+'<p class="muted">اختاروا جزءًا معًا، وسيفتح عند كل أعضاء المجموعة.</p><div class="parts">'+L.parts.map((p,i)=>{const d=G.done[i];return '<button class="part'+(d!=null?' done':'')+'" style="--pc:'+p.color+'" data-p="'+i+'"><span class="e">'+p.e+'</span><small>الجزء '+AR(i+1)+'</small><b>'+p.t+'</b><small>'+(d!=null?'✓ '+AR(d)+' من '+AR(PM(p)):AR(PM(p))+' درجات')+'</small></button>'}).join('')+'</div></section>';
+  h+='<section class="card" id="rank">'+rankHTML()+'</section>';
   h+='<div class="row"><button class="btn ghost" data-exit>↩ تغيير النشاط أو المجموعة</button></div>'}
  else h+=vPart();
  return h+foot}
@@ -195,15 +210,15 @@ const fmtD=d=>AR(String(d).split('-').reverse().join('/'));
 async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&f.id==='tdate'))render()}catch(e){console.warn(e)}}
 function savedRows(){const L=LESSONS[T.l],rows=T.saved.filter(r=>r.session_date===T.date),by={};
  rows.forEach(r=>{const o=by[r.grp]=by[r.grp]||{g:r.grp,parts:{},c:{},m:new Set(),t:''};o.parts[r.part]=[r.score,r.max_score];(r.members||[]).forEach(n=>o.m.add(n));Object.entries(r.contrib||{}).forEach(([n,k])=>{o.m.add(n);o.c[n]=Math.max(o.c[n]||0,k)});if(r.updated_at>o.t)o.t=r.updated_at});
- return Object.values(by).sort((a,b)=>a.g-b.g).map(o=>{o.tot=Object.values(o.parts).reduce((s,x)=>s+x[0],0);return o})}
+ return Object.values(by).sort((a,b)=>a.g-b.g).map(o=>{let m=0;o.star=null;Object.entries(o.c).forEach(([n,k])=>{if(k>m){m=k;o.star=n}});o.tot=Object.values(o.parts).reduce((s,x)=>s+x[0],0);return o})}
 function savedHTML(){const L=LESSONS[T.l],ds=[...new Set(T.saved.map(r=>r.session_date))];
  let h='<section class="card" id="saved"><div class="row" style="justify-content:space-between"><h2 class="sec">💾 النتائج المحفوظة</h2>'+(ds.length?'<div class="row noprint"><label for="tdate" style="font-weight:800">التاريخ</label><select id="tdate" style="width:auto">'+ds.map(d=>'<option value="'+d+'"'+(d===T.date?' selected':'')+'>'+fmtD(d)+'</option>').join('')+'</select></div>':'')+'</div>';
  if(!ds.length)return h+'<p class="muted">ما فيه نتائج محفوظة لهذا النشاط والشعبة إلى الآن. تنحفظ النتيجة تلقائيًا أول ما توافق المجموعة على التصحيح.</p></section>';
  const rows=savedRows(),max=L.parts.reduce((a,p)=>a+PM(p),0);
  h+='<p class="printonly"><b>'+SCHOOL+' · أحياء ١ · المعلمة '+TEACHER+'</b><br>نتائج نشاط «'+L.title+'» · الشعبة '+AR(T.c)+' · التاريخ '+fmtD(T.date)+'</p>';
  h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>المجموعة</th><th>الأعضاء (عدد المشاركات)</th>'+L.parts.map((p,k)=>'<th>'+p.e+' ج'+AR(k+1)+'<br><small>/'+AR(PM(p))+'</small></th>').join('')+'<th>المجموع<br><small>/'+AR(max)+'</small></th></tr></thead><tbody>'+
-  rows.map(o=>'<tr><td><b>'+tname(o.g)+'</b></td><td class="mm">'+[...o.m].map(n=>esc(n)+(o.c[n]!=null?' ('+AR(o.c[n])+')':'')).join('، ')+'</td>'+L.parts.map((p,k)=>'<td>'+(o.parts[k]?AR(o.parts[k][0]):'—')+'</td>').join('')+'<td><b>'+AR(o.tot)+'</b></td></tr>').join('')+'</tbody></table></div>';
- h+='<p class="muted" style="font-size:.8rem">رقم المشاركات = كم مرة اختارت الطالبة أو عدّلت إجابة في النشاط.</p><div class="row noprint"><button class="btn" data-csv>⬇️ تحميل ملف Excel</button><button class="btn ghost" data-print>🖨️ طباعة أو حفظ PDF</button><button class="btn ghost" data-reload>🔄 تحديث النتائج</button></div></section>';
+  rows.map(o=>'<tr><td><b>'+tname(o.g)+'</b></td><td class="mm">'+[...o.m].map(n=>esc(n)+(o.c[n]!=null?' ('+AR(o.c[n])+')':'')+(n===o.star?' 🌟':'')).join('، ')+'</td>'+L.parts.map((p,k)=>'<td>'+(o.parts[k]?AR(o.parts[k][0]):'—')+'</td>').join('')+'<td><b>'+AR(o.tot)+'</b></td></tr>').join('')+'</tbody></table></div>';
+ h+='<p class="muted" style="font-size:.8rem">رقم المشاركات = كم مرة اختارت الطالبة أو عدّلت إجابة في النشاط · 🌟 = نجمة المشاركة في المجموعة.</p><div class="row noprint"><button class="btn" data-csv>⬇️ تحميل ملف Excel</button><button class="btn ghost" data-print>🖨️ طباعة أو حفظ PDF</button><button class="btn ghost" data-reload>🔄 تحديث النتائج</button></div></section>';
  return h}
 function dlCSV(){const L=LESSONS[T.l],rows=savedRows();const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
  const head=['المدرسة','المعلمة','النشاط','الشعبة','التاريخ','المجموعة','الأعضاء (عدد المشاركات)'].concat(L.parts.map((p,k)=>'الجزء '+(k+1)+' من '+PM(p)),['المجموع','الدرجة الكاملة']);
@@ -264,7 +279,7 @@ root.addEventListener('click',e=>{
  if(d.s!=null&&d.b!=null){a[+d.s]=+d.b;chg(i);return}
  if(d.q!=null&&d.o!=null){a[+d.q]=+d.o;chg(i);return}
  if('check' in d){if(!complete(p,a))return;const v=G.votes[i]=G.votes[i]||{};v[P.n]=1;const pr=present(),yes=pr.filter(n=>v[n]).length;
-  if(yes*2>pr.length){G.done[i]=grade(p,a);delete G.votes[i];commit();saveRes(i,G.done[i],PM(p))}else{commit();toast('🗳️ انحسب صوتك، ننتظر موافقة زميلاتك')}render();return}
+  if(yes*2>pr.length){G.done[i]=grade(p,a);delete G.votes[i];commit();saveRes(i,G.done[i],PM(p));setTimeout(()=>celebrate(G.done[i]===PM(p)),60)}else{commit();toast('🗳️ انحسب صوتك، ننتظر موافقة زميلاتك')}render();return}
 });
 root.addEventListener('change',e=>{const t=e.target;
  if(t.id==='tl'){T.l=+t.value;teacherJoin();render();return}
