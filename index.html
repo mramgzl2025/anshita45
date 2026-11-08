@@ -73,6 +73,16 @@ select{width:100%;border:2px solid var(--line);background:#fff;border-radius:12p
 .chips span.now{border-color:var(--sun);background:#fff7e0}
 .foot{text-align:center;color:var(--muted);font-size:.8rem}
 img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
+.role{display:flex;gap:10px;align-items:center;background:#fff7e0;border:1px solid #f5d48a;border-radius:14px;padding:6px 12px}
+.role .re{font-size:1.8rem}
+.btn.help{padding:6px 14px}.btn.help.on{background:#fff1f2;color:var(--bad);border:2px solid var(--bad)}
+.rt{width:100%;border-collapse:collapse;font-size:.9rem}.rt th,.rt td{border:1px solid var(--line);padding:5px 8px;text-align:center;vertical-align:middle}.rt th{background:#eef3f1}.rt td.mm{text-align:start;min-width:180px}
+.printonly{display:none}
+.board{gap:12px}.brow{display:grid;grid-template-columns:56px 48px minmax(0,1.2fr) minmax(0,2fr) auto;gap:12px;align-items:center;border:2px solid var(--line);border-radius:18px;padding:10px 16px;font-size:clamp(1.1rem,2.6vw,1.7rem)}
+.brow.top{border-color:var(--sun);background:#fffbeb}.bm{font-size:2.2rem;text-align:center}.be{font-size:2rem}.bs{font-family:var(--display);color:var(--c1);font-size:clamp(1.4rem,3.4vw,2.4rem);white-space:nowrap}.bs small{font-size:.5em;color:var(--muted)}
+.bbar{height:16px;border-radius:999px;background:#eef3f1;overflow:hidden}.bbar i{display:block;height:100%;background:linear-gradient(90deg,var(--c1),var(--c2));border-radius:999px}
+@media (max-width:600px){.brow{grid-template-columns:40px 36px minmax(0,1fr) auto}.bbar{display:none}}
+@media print{.hero,.noprint,.foot,.toast,.wrap>section:not(#saved){display:none!important}.printonly{display:block}#saved{box-shadow:none;border:0}body{background:#fff}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -115,24 +125,35 @@ function vStart(){
 let G=null, ch=null, lobby=null, peers=[], online=false, view='list';
 const roomId=()=>'g-'+LESSONS[P.l].key+'-'+P.c.replace('/','_')+'-'+P.g;
 const lobbyId=()=>'lobby-'+LESSONS[P.l].key+'-'+P.c.replace('/','_');
-function blank(){return{v:0,by:'',part:null,ans:{},done:{}}}
+function blank(){return{v:0,by:'',part:null,ans:{},done:{},votes:{},contrib:{},help:0}}
 function joinRoom(){
- G=LS.get('st_'+roomId(),blank());view='room';
+ G=LS.get('st_'+roomId(),blank());norm();JOIN_AT=Date.now();view='room';
  if(!SB){render();return}
  ch=SB.channel(roomId(),{config:{broadcast:{self:false},presence:{key:P.n+'|'+Math.random().toString(36).slice(2,7)}}});
- ch.on('presence',{event:'sync'},()=>{const st=ch.presenceState();peers=Object.values(st).flat().map(x=>x.name);renderMembers();sendProg()})
-   .on('broadcast',{event:'state'},({payload})=>{if(payload&&payload.v>G.v){const prevPart=G.part;G=payload;LS.set('st_'+roomId(),G);if(G.by&&G.by!==P.n)toast('✏️ '+first(G.by)+' عدّلت');render(prevPart!==G.part)}})
+ ch.on('presence',{event:'sync'},()=>{const st=ch.presenceState();const fl=Object.values(st).flat();peers=fl.map(x=>x.name);PA=fl.map(x=>({n:x.name,at:x.at||0}));renderMembers();sendProg()})
+   .on('broadcast',{event:'state'},({payload})=>{if(payload&&payload.v>G.v){const prevPart=G.part;G=payload;norm();LS.set('st_'+roomId(),G);if(G.by&&G.by!==P.n)toast('✏️ '+first(G.by)+' عدّلت');render(prevPart!==G.part)}})
    .on('broadcast',{event:'hello'},()=>{if(G.v>0)ch.send({type:'broadcast',event:'state',payload:G})})
-   .subscribe(async s=>{online=s==='SUBSCRIBED';renderMembers();if(online){await ch.track({name:P.n,at:Date.now()});ch.send({type:'broadcast',event:'hello',payload:{}})}});
+   .subscribe(async s=>{online=s==='SUBSCRIBED';renderMembers();if(online){await ch.track({name:P.n,at:JOIN_AT});ch.send({type:'broadcast',event:'hello',payload:{}})}});
  lobby=SB.channel(lobbyId(),{config:{broadcast:{self:false}}});
- lobby.on('broadcast',{event:'ping'},()=>sendProg()).subscribe(s=>{if(s==='SUBSCRIBED')sendProg()});
+ lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED')sendProg()});
  render()}
 function leaveRoom(){try{ch&&SB.removeChannel(ch);lobby&&SB.removeChannel(lobby)}catch(e){}ch=null;lobby=null;peers=[];online=false}
 function commit(){G.v=Date.now();G.by=P.n;LS.set('st_'+roomId(),G);if(ch&&online)ch.send({type:'broadcast',event:'state',payload:G});sendProg()}
 let progT=null;
-function sendProg(){if(!lobby)return;clearTimeout(progT);progT=setTimeout(()=>{try{lobby.send({type:'broadcast',event:'prog',payload:{g:P.g,m:peers.length?peers:[P.n],done:G.done,part:G.part,t:Date.now()}})}catch(e){}},300)}
+function sendProg(){if(!lobby)return;clearTimeout(progT);progT=setTimeout(()=>{try{lobby.send({type:'broadcast',event:'prog',payload:{g:P.g,m:peers.length?peers:[P.n],done:G.done,part:G.part,help:G.help||0,c:G.contrib,t:Date.now()}})}catch(e){}},300)}
+const ROLES=[['👑','القائدة','تختار الجزء وتدير النقاش، وتتأكد إن الكل شارك برأيه'],['✍️','الكاتبة','تختار الإجابات على الشاشة بعد ما تتفق المجموعة'],['🔍','المدققة','تراجع كل الإجابات قبل التصويت على التصحيح'],['🎤','المتحدثة','تعرض حل المجموعة وتشرحه للفصل'],['⏱️','منظمة الوقت','تتابع الوقت وتنبّه المجموعة عشان تخلص في وقتها'],['🤝','المساندة','تساعد زميلاتها وتشارك برأيها في كل سؤال']];
+let PA=[],JOIN_AT=Date.now();
+function roleMap(){const m={};(PA.length?PA:[{n:P.n,at:JOIN_AT}]).forEach(x=>{if(!(x.n in m)||x.at<m[x.n])m[x.n]=x.at});const o=Object.keys(m).sort((a,b)=>m[a]-m[b]||a.localeCompare(b));const r={};o.forEach((n,k)=>r[n]=Math.min(k,5));return r}
+const present=()=>[...new Set(peers.length?peers:[P.n])];
+function norm(){G.votes=G.votes||{};G.contrib=G.contrib||{};G.help=G.help||0}
+function chg(i){delete G.votes[i];G.contrib[P.n]=(G.contrib[P.n]||0)+1;commit();render()}
+function saveRes(i,sc,mx){if(!SB)return;const pr=present(),c={};pr.concat(Object.keys(G.contrib)).slice(0,12).forEach(n=>c[n]=G.contrib[n]||0);
+ SB.rpc('anshita_save2',{p_lesson:LESSONS[P.l].key,p_cls:P.c,p_grp:P.g,p_part:i,p_score:sc,p_max:mx,p_members:pr.slice(0,12),p_contrib:c}).then(({error})=>{if(error){console.warn(error);toast('⚠️ تعذّر حفظ النتيجة، جربن التصويت مرة ثانية')}else toast('💾 انحفظت نتيجة المجموعة')})}
+function voteBtn(i,full){const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length,me=!!v[P.n];
+ return '<button class="btn" data-check'+(full?'':' disabled')+'>'+(me?'✔ وافقتِ':'🗳️ أوافق على الإجابات')+' ('+AR(yes)+' من '+AR(need)+')</button>'+(full?(yes?'<span class="muted">وافقت: '+pr.filter(n=>v[n]).map(n=>esc(first(n))).join('، ')+'</span>':'<span class="muted">التصحيح يتم لما توافق أغلب المجموعة</span>'):'<span class="muted">أكملن كل الإجابات أولًا</span>')}
 function membersHTML(){const L=LESSONS[P.l],t=L.teams[P.g-1];const list=[...new Set(peers.length?peers:[P.n])];
- return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi></b><span class="status '+(online?'on">● متصلة مباشرة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+list.map(n=>'<span class="mem'+(n===P.n?' me':'')+'"><i></i>'+esc(n)+(n===P.n?' (أنتِ)':'')+'</span>').join('')+'</div><p class="muted" style="font-size:.85rem">الموجودات الآن في المجموعة: '+AR(list.length)+'. أي إجابة تختارها واحدة تظهر عند الجميع.</p>'}
+ const rl=roleMap(),my=ROLES[rl[P.n]??0],hp=G&&G.help&&Date.now()-G.help<15*60000;
+ return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi></b><span class="status '+(online?'on">● متصلة مباشرة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+list.map(n=>{const r=ROLES[rl[n]??0];return '<span class="mem'+(n===P.n?' me':'')+'" title="'+r[1]+'"><i></i>'+r[0]+' '+esc(n)+(n===P.n?' (أنتِ)':'')+'</span>'}).join('')+'</div><div class="role"><span class="re">'+my[0]+'</span><div><b>دورك: '+my[1]+'</b><div class="muted" style="font-size:.85rem">'+my[2]+'</div></div></div><div class="row" style="justify-content:space-between"><p class="muted" style="font-size:.85rem">الموجودات الآن: '+AR(list.length)+' · أي إجابة تختارها واحدة تظهر عند الجميع، والتصحيح يتم بموافقة أغلب المجموعة.</p><button class="btn '+(hp?'help on':'ghost help')+'" data-help>'+(hp?'✋ طلبتنّ المساعدة… (إلغاء)':'✋ نحتاج مساعدة')+'</button></div>'}
 function renderMembers(){const el=document.getElementById('mem');if(el)el.innerHTML=membersHTML()}
 function vRoom(){const L=LESSONS[P.l];theme(L);
  let h=hero(L)+'<section class="card" id="mem">'+membersHTML()+'</section>';
@@ -158,31 +179,65 @@ function vPart(){
  else{p.q.forEach((Q,qi)=>{const ord=Q[1].length===2?[0,1]:shuf(i*101+qi*13+5,Q[1].length);const pk=a[qi];
   h+='<section class="card q"><h3>'+AR(qi+1)+'. '+Q[0]+'</h3>'+(Q[4]?'<img class="qimg" src="'+Q[4]+'" alt="">':'')+'<div class="ans">'+ord.map(oi=>{let c='';if(chk){if(oi===Q[2])c='right';else if(pk===oi)c='wrong'}return '<button data-q="'+qi+'" data-o="'+oi+'" aria-pressed="'+(pk===oi)+'"'+(c?' class="'+c+'"':'')+(chk?' disabled':'')+'>'+Q[1][oi]+'</button>'}).join('')+'</div>'+(chk?'<div class="fb '+(pk===Q[2]?'ok">✓ ':'no">✗ ')+Q[3]+'</div>':'')+'</section>'})}
  h+='</div>';
- if(!chk){const full=complete(p,a);h+='<div class="row"><button class="btn ghost" data-list>↩ أجزاء النشاط</button>'+(p.type==='order'&&(a.seq||[]).length?'<button class="btn ghost" data-clear>مسح الترتيب</button>':'')+'<button class="btn" data-check'+(full?'':' disabled')+'>تصحيح ✔</button>'+(full?'':'<span class="muted">أكملن كل الإجابات أولًا</span>')+'</div>'+(G.by?'<p class="who">آخر تعديل: '+esc(first(G.by))+'</p>':'')}
+ if(!chk){const full=complete(p,a);h+='<div class="row"><button class="btn ghost" data-list>↩ أجزاء النشاط</button>'+(p.type==='order'&&(a.seq||[]).length?'<button class="btn ghost" data-clear>مسح الترتيب</button>':'')+voteBtn(i,full)+'</div>'+(G.by?'<p class="who">آخر تعديل: '+esc(first(G.by))+'</p>':'')}
  else{const sc=G.done[i],pm=PM(p);h+='<section class="card score"><div style="font-size:1.5rem">'+'⭐'.repeat(Math.round(sc/pm*5))+'</div><div class="big">'+AR(sc)+' من '+AR(pm)+'</div><p>'+(sc===pm?'ممتاز! العلامة الكاملة للمجموعة 🎉':'راجعن التصحيح معًا 💪')+'</p><div class="row" style="justify-content:center"><button class="btn ghost" data-retry>إعادة المحاولة</button><button class="btn" data-list>العودة لأجزاء النشاط</button></div></section>'}
  return h}
 function complete(p,a){if(p.type==='order')return (a.seq||[]).length===p.items.length;const n=PM(p);for(let k=0;k<n;k++)if(a[k]==null)return false;return true}
 function grade(p,a){if(p.type==='order')return a.seq.reduce((s,v,k)=>s+(v===k?1:0),0);if(p.type==='match')return p.pairs.reduce((s,_,k)=>s+(a[k]===k?1:0),0);if(p.type==='sort')return p.cards.reduce((s,c,k)=>s+(a[k]===c[1]?1:0),0);return p.q.reduce((s,Q,k)=>s+(a[k]===Q[2]?1:0),0)}
-let T={l:0,c:CLASSES[0],ok:false,teams:{}},tch=null;
+let T={l:0,c:CLASSES[0],ok:false,teams:{},code:'',saved:[],date:'',board:false},tch=null;
+const tname=g=>{const t=LESSONS[T.l].teams[g-1];return t?t[1]+' '+t[0]:'مجموعة '+AR(g)};
+const fmtD=d=>AR(String(d).split('-').reverse().join('/'));
+async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&f.id==='tdate'))render()}catch(e){console.warn(e)}}
+function savedRows(){const L=LESSONS[T.l],rows=T.saved.filter(r=>r.session_date===T.date),by={};
+ rows.forEach(r=>{const o=by[r.grp]=by[r.grp]||{g:r.grp,parts:{},c:{},m:new Set(),t:''};o.parts[r.part]=[r.score,r.max_score];(r.members||[]).forEach(n=>o.m.add(n));Object.entries(r.contrib||{}).forEach(([n,k])=>{o.m.add(n);o.c[n]=Math.max(o.c[n]||0,k)});if(r.updated_at>o.t)o.t=r.updated_at});
+ return Object.values(by).sort((a,b)=>a.g-b.g).map(o=>{o.tot=Object.values(o.parts).reduce((s,x)=>s+x[0],0);return o})}
+function savedHTML(){const L=LESSONS[T.l],ds=[...new Set(T.saved.map(r=>r.session_date))];
+ let h='<section class="card" id="saved"><div class="row" style="justify-content:space-between"><h2 class="sec">💾 النتائج المحفوظة</h2>'+(ds.length?'<div class="row noprint"><label for="tdate" style="font-weight:800">التاريخ</label><select id="tdate" style="width:auto">'+ds.map(d=>'<option value="'+d+'"'+(d===T.date?' selected':'')+'>'+fmtD(d)+'</option>').join('')+'</select></div>':'')+'</div>';
+ if(!ds.length)return h+'<p class="muted">ما فيه نتائج محفوظة لهذا النشاط والشعبة إلى الآن. تنحفظ النتيجة تلقائيًا أول ما توافق المجموعة على التصحيح.</p></section>';
+ const rows=savedRows(),max=L.parts.reduce((a,p)=>a+PM(p),0);
+ h+='<p class="printonly"><b>'+SCHOOL+' · أحياء ١ · المعلمة '+TEACHER+'</b><br>نتائج نشاط «'+L.title+'» · الشعبة '+AR(T.c)+' · التاريخ '+fmtD(T.date)+'</p>';
+ h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>المجموعة</th><th>الأعضاء (عدد المشاركات)</th>'+L.parts.map((p,k)=>'<th>'+p.e+' ج'+AR(k+1)+'<br><small>/'+AR(PM(p))+'</small></th>').join('')+'<th>المجموع<br><small>/'+AR(max)+'</small></th></tr></thead><tbody>'+
+  rows.map(o=>'<tr><td><b>'+tname(o.g)+'</b></td><td class="mm">'+[...o.m].map(n=>esc(n)+(o.c[n]!=null?' ('+AR(o.c[n])+')':'')).join('، ')+'</td>'+L.parts.map((p,k)=>'<td>'+(o.parts[k]?AR(o.parts[k][0]):'—')+'</td>').join('')+'<td><b>'+AR(o.tot)+'</b></td></tr>').join('')+'</tbody></table></div>';
+ h+='<p class="muted" style="font-size:.8rem">رقم المشاركات = كم مرة اختارت الطالبة أو عدّلت إجابة في النشاط.</p><div class="row noprint"><button class="btn" data-csv>⬇️ تحميل ملف Excel</button><button class="btn ghost" data-print>🖨️ طباعة أو حفظ PDF</button><button class="btn ghost" data-reload>🔄 تحديث النتائج</button></div></section>';
+ return h}
+function dlCSV(){const L=LESSONS[T.l],rows=savedRows();const q=v=>'"'+String(v).replace(/"/g,'""')+'"';
+ const head=['المدرسة','المعلمة','النشاط','الشعبة','التاريخ','المجموعة','الأعضاء (عدد المشاركات)'].concat(L.parts.map((p,k)=>'الجزء '+(k+1)+' من '+PM(p)),['المجموع','الدرجة الكاملة']);
+ const lines=[head.map(q).join(',')].concat(rows.map(o=>[SCHOOL,TEACHER,L.title,T.c,String(T.date).split('-').reverse().join('/'),tname(o.g).replace(/^\S+\s/,''),[...o.m].map(n=>n+(o.c[n]!=null?' ('+o.c[n]+')':'')).join('، ')].concat(L.parts.map((p,k)=>o.parts[k]?o.parts[k][0]:''),[o.tot,L.parts.reduce((a,p)=>a+PM(p),0)]).map(q).join(',')));
+ const b=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='نتائج-'+L.key+'-'+T.c.replace('/','-')+'-'+T.date+'.csv';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
+function liveTot(g){const d=T.teams[g];return d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0}
+function vBoard(){const L=LESSONS[T.l],max=L.parts.reduce((a,p)=>a+PM(p),0),today=new Date(Date.now()+3*3600e3).toISOString().slice(0,10);
+ const sv={};T.saved.filter(r=>r.session_date===today).forEach(r=>{sv[r.grp]=(sv[r.grp]||0)+r.score});
+ const list=L.teams.map((t,i)=>({g:i+1,t,s:Math.max(liveTot(i+1),sv[i+1]||0),on:!!T.teams[i+1]||sv[i+1]!=null})).filter(x=>x.on).sort((a,b)=>b.s-a.s);
+ const med=['🥇','🥈','🥉'];let rank=0,prev=null;
+ let h=hero(L,'🏆 لوحة الشرف · الشعبة '+AR(T.c))+'<section class="card board">';
+ h+=list.length?list.map((x,k)=>{if(x.s!==prev){rank=k;prev=x.s}return '<div class="brow'+(rank<3?' top':'')+'"><span class="bm">'+(med[rank]||AR(rank+1))+'</span><span class="be">'+x.t[1]+'</span><b>'+x.t[0]+'</b><span class="bbar"><i style="width:'+(max?Math.round(x.s/max*100):0)+'%"></i></span><span class="bs">'+AR(x.s)+'<small> / '+AR(max)+'</small></span></div>'}).join(''):'<p class="muted" style="font-size:1.2rem;text-align:center">لما تبدأ المجموعات بالحل يظهر ترتيبها هنا 🌟</p>';
+ return h+'</section><div class="row" style="justify-content:center"><button class="btn ghost" data-board>↩ رجوع للوحة المعلمة</button></div>'+foot}
+function helpHTML(g,d){return d&&d.help&&Date.now()-d.help<15*60000?'<div class="fb no row" style="justify-content:space-between">✋ تطلب مساعدة<button class="btn ghost" data-hok="'+g+'" style="padding:2px 12px">رحت لهم ✓</button></div>':''}
 function vTeacher(){const L=LESSONS[T.l];theme(L);
+ if(T.ok&&T.board)return vBoard();
  let h=hero(L,'📋 لوحة المعلمة: تتابعين المجموعات وهي تحل مباشرة');
  if(!T.ok){return h+'<section class="card"><label for="tc" style="font-weight:800">رمز المعلمة</label><input id="tc" inputmode="numeric" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn" data-tok>دخول</button><a class="btn ghost" href="#" style="text-decoration:none">رجوع</a></div></section>'+foot}
- h+='<section class="card"><div class="row"><label style="font-weight:800" for="tl">النشاط</label><select id="tl" style="width:auto">'+LESSONS.map((l,i)=>'<option value="'+i+'"'+(i===T.l?' selected':'')+'>'+l.title+'</option>').join('')+'</select><label style="font-weight:800" for="tcls">الشعبة</label><select id="tcls" style="width:auto">'+CLASSES.map(c=>'<option value="'+c+'"'+(c===T.c?' selected':'')+'>'+AR(c)+'</option>').join('')+'</select><button class="btn ghost" data-ping>🔄 تحديث</button></div><p class="muted" style="font-size:.85rem">تظهر هنا المجموعات المفتوحة الآن على أجهزة الطالبات. الصفحة لا تحفظ النتائج، فخلّيها مفتوحة أثناء الحصة.</p></section>';
+ h+='<section class="card"><div class="row"><label style="font-weight:800" for="tl">النشاط</label><select id="tl" style="width:auto">'+LESSONS.map((l,i)=>'<option value="'+i+'"'+(i===T.l?' selected':'')+'>'+l.title+'</option>').join('')+'</select><label style="font-weight:800" for="tcls">الشعبة</label><select id="tcls" style="width:auto">'+CLASSES.map(c=>'<option value="'+c+'"'+(c===T.c?' selected':'')+'>'+AR(c)+'</option>').join('')+'</select><button class="btn ghost" data-ping>🔄 تحديث</button><button class="btn" data-board>🏆 لوحة الشرف (للعرض)</button></div><p class="muted" style="font-size:.85rem">تظهر هنا المجموعات المفتوحة الآن على أجهزة الطالبات. النتائج تنحفظ تلقائيًا عند كل تصحيح، وتلقينها تحت في «النتائج المحفوظة».</p></section>';
  const max=L.parts.reduce((a,p)=>a+PM(p),0);
- h+='<div class="teams">'+L.teams.map((t,i)=>{const d=T.teams[i+1];const fresh=d&&Date.now()-d.t<120000;const tot=d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0;
-  return '<article class="card team"><div class="hd"><span class="e">'+t[1]+'</span><div><b>'+t[0]+'</b><div class="muted" style="font-size:.8rem">'+(d?(fresh?'🟢 تحل الآن':'⚪ آخر نشاط قبل دقائق'):'لم تدخل بعد')+'</div></div><span class="pts">'+AR(tot)+'<small class="muted" style="font-size:.7rem"> / '+AR(max)+'</small></span></div>'+(d?'<div class="members">'+[...new Set(d.m||[])].map(n=>'<span class="mem"><i></i>'+esc(n)+'</span>').join('')+'</div>':'')+'<div class="chips">'+L.parts.map((p,k)=>{const s=d&&d.done?d.done[k]:null;return '<span class="'+(s!=null?'ok':d&&d.part===k?'now':'')+'">'+p.e+' '+AR(k+1)+(s!=null?': '+AR(s)+'/'+AR(PM(p)):d&&d.part===k?' ✏️':'')+'</span>'}).join('')+'</div></article>'}).join('')+'</div>';
+ h+='<div class="teams noprint">'+L.teams.map((t,i)=>{const d=T.teams[i+1];const fresh=d&&Date.now()-d.t<120000;const tot=d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0;
+  return '<article class="card team"><div class="hd"><span class="e">'+t[1]+'</span><div><b>'+t[0]+'</b><div class="muted" style="font-size:.8rem">'+(d?(fresh?'🟢 تحل الآن':'⚪ آخر نشاط قبل دقائق'):'لم تدخل بعد')+'</div></div><span class="pts">'+AR(tot)+'<small class="muted" style="font-size:.7rem"> / '+AR(max)+'</small></span></div>'+(d?'<div class="members">'+[...new Set(d.m||[])].map(n=>'<span class="mem"><i></i>'+esc(n)+'</span>').join('')+'</div>':'')+helpHTML(i+1,d)+'<div class="chips">'+L.parts.map((p,k)=>{const s=d&&d.done?d.done[k]:null;return '<span class="'+(s!=null?'ok':d&&d.part===k?'now':'')+'">'+p.e+' '+AR(k+1)+(s!=null?': '+AR(s)+'/'+AR(PM(p)):d&&d.part===k?' ✏️':'')+'</span>'}).join('')+'</div></article>'}).join('')+'</div>'+savedHTML();
  return h+foot}
 function teacherJoin(){if(!SB){toast('تعذّر الاتصال');return}try{tch&&SB.removeChannel(tch)}catch(e){}T.teams={};
  tch=SB.channel('lobby-'+LESSONS[T.l].key+'-'+T.c.replace('/','_'),{config:{broadcast:{self:false}}});
- tch.on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;T.teams[payload.g]=payload;render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})})}
+ tch.on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;const o=T.teams[payload.g];if(payload.help&&(!o||o.help!==payload.help)&&Date.now()-payload.help<15*60000)toast('✋ '+tname(payload.g)+' تطلب مساعدة');T.teams[payload.g]=payload;const f=document.activeElement;if(!(f&&f.id==='tdate'))render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})});loadSaved()}
 function render(scrollTop){
- if(location.hash==='#teacher'){root.innerHTML=vTeacher();return}
+ if(location.hash==='#teacher'){const y=scrollY;root.innerHTML=vTeacher();if(scrollTop)scrollTo(0,0);else scrollTo(0,y);return}
  const y=scrollY;root.innerHTML=view==='room'&&G?vRoom():vStart();if(scrollTop)scrollTo(0,0);else scrollTo(0,y)}
 root.addEventListener('click',e=>{
  const t=e.target.closest('button,[data-un]');if(!t)return;const d=t.dataset;
  if(location.hash==='#teacher'){
-  if('tok' in d){if(document.getElementById('tc').value.trim()===TCODE){T.ok=true;render();teacherJoin()}else toast('الرمز غير صحيح')}
+  if('tok' in d){if(document.getElementById('tc').value.trim()===TCODE){T.ok=true;T.code=TCODE;render();teacherJoin()}else toast('الرمز غير صحيح')}
   if('ping' in d){teacherJoin();render()}
+  if('board' in d){T.board=!T.board;render(true);if(T.board)try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}else try{document.fullscreenElement&&document.exitFullscreen()}catch(e){}}
+  if(d.hok){const g=+d.hok;try{tch&&tch.send({type:'broadcast',event:'helpok',payload:{g}})}catch(e){}if(T.teams[g])T.teams[g].help=0;render()}
+  if('csv' in d)dlCSV();
+  if('print' in d)print();
+  if('reload' in d)loadSaved();
   return}
  if(view!=='room'){
   if(d.l!=null){P.l=+d.l;step=1;render(true);return}
@@ -192,25 +247,29 @@ root.addEventListener('click',e=>{
   if(d.g){P.g=+d.g;LS.set('me',P);joinRoom();scrollTo(0,0);return}
   return}
  if('exit' in d){leaveRoom();view='start';step=0;render(true);return}
+ if('help' in d){G.help=G.help&&Date.now()-G.help<15*60000?0:Date.now();commit();renderMembers();toast(G.help?'✋ وصل طلبكم للمعلمة':'تم إلغاء طلب المساعدة');return}
  if(d.p!=null){G.part=+d.p;commit();render(true);return}
  if('list' in d){G.part=null;commit();render(true);return}
  const i=G.part;if(i==null)return;const L=LESSONS[P.l],p=L.parts[i],a=A();
  if('retry' in d){delete G.done[i];G.ans[i]={};commit();render();return}
  if(G.done[i]!=null)return;
- if(d.add!=null){(a.seq=a.seq||[]).push(+d.add);commit();render();return}
- if(d.un!=null){a.seq.splice(+d.un,1);commit();render();return}
- if('clear' in d){a.seq=[];commit();render();return}
- if(d.s!=null&&d.b!=null){a[+d.s]=+d.b;commit();render();return}
- if(d.q!=null&&d.o!=null){a[+d.q]=+d.o;commit();render();return}
- if('check' in d){G.done[i]=grade(p,a);commit();render();return}
+ if(d.add!=null){(a.seq=a.seq||[]).push(+d.add);chg(i);return}
+ if(d.un!=null){a.seq.splice(+d.un,1);chg(i);return}
+ if('clear' in d){a.seq=[];chg(i);return}
+ if(d.s!=null&&d.b!=null){a[+d.s]=+d.b;chg(i);return}
+ if(d.q!=null&&d.o!=null){a[+d.q]=+d.o;chg(i);return}
+ if('check' in d){if(!complete(p,a))return;const v=G.votes[i]=G.votes[i]||{};v[P.n]=1;const pr=present(),yes=pr.filter(n=>v[n]).length;
+  if(yes*2>pr.length){G.done[i]=grade(p,a);delete G.votes[i];commit();saveRes(i,G.done[i],PM(p))}else{commit();toast('🗳️ انحسب صوتك، ننتظر موافقة زميلاتك')}render();return}
 });
 root.addEventListener('change',e=>{const t=e.target;
  if(t.id==='tl'){T.l=+t.value;teacherJoin();render();return}
  if(t.id==='tcls'){T.c=t.value;teacherJoin();render();return}
- if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')delete a[+t.dataset.m];else a[+t.dataset.m]=+t.value;commit();render()}});
+ if(t.id==='tdate'){T.date=t.value;render();return}
+ if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')delete a[+t.dataset.m];else a[+t.dataset.m]=+t.value;chg(G.part)}});
 root.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.un!=null){e.preventDefault();e.target.click()}});
 addEventListener('hashchange',()=>render(true));
-setInterval(()=>{if(location.hash==='#teacher'&&T.ok)render()},15000);
+setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&f.id==='tdate'))render()},15000);
+setInterval(()=>{if(location.hash==='#teacher'&&T.ok)loadSaved()},45000);
 if(location.hash!=='#teacher'&&P.l!=null&&P.c&&P.n&&P.g&&LESSONS[P.l])joinRoom();else render();
 })();
 </script>
