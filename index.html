@@ -92,6 +92,12 @@ img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 .prog{height:14px;border-radius:999px;background:#eef3f1;overflow:hidden}.prog i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--c1),var(--c2));transition:width .6s}
 .star{background:#fffbeb;border:1px dashed var(--sun);border-radius:12px;padding:4px 12px;font-size:.92rem}
 .mini{display:flex;flex-direction:column;gap:6px}.mrank{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:4px 12px}.mrank.me{border:2px solid var(--c1);background:#eefbf3;font-weight:800}
+.tclock{position:fixed;top:10px;left:10px;z-index:55;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 8px 24px rgb(0 0 0/.25)}
+.tclock b{font-family:var(--display);font-size:1.7rem;letter-spacing:1px;line-height:1.2}.tclock small{opacity:.85;font-size:.75rem}
+.tclock.warn{background:#b45309;animation:tpulse 1s infinite}.tclock.over{background:var(--bad);animation:tpulse .6s infinite}
+@keyframes tpulse{50%{transform:scale(1.07)}}
+.tmcard{border:2px solid var(--sun)}
+@media print{.tclock{display:none!important}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -144,9 +150,9 @@ function joinRoom(){
    .on('broadcast',{event:'hello'},()=>{if(G.v>0)ch.send({type:'broadcast',event:'state',payload:G})})
    .subscribe(async s=>{online=s==='SUBSCRIBED';renderMembers();if(online){await ch.track({name:P.n,at:JOIN_AT});ch.send({type:'broadcast',event:'hello',payload:{}})}});
  OTH={};lobby=SB.channel(lobbyId(),{config:{broadcast:{self:false}}});
- lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'prog'},({payload})=>{if(payload&&payload.g&&payload.g!==P.g){OTH[payload.g]={s:Object.values(payload.done||{}).reduce((a,b)=>a+b,0),t:Date.now()};const el=document.getElementById('rank');if(el)el.innerHTML=rankHTML()}}).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED'){sendProg();try{lobby.send({type:'broadcast',event:'ping',payload:{}})}catch(e){}}});
+ lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'timer'},({payload})=>{if(payload){const was=TM.end;setTimer(+payload.rem||0,+payload.dur||0);if(payload.rem>0&&!was)toast('⏱️ بدأ وقت النشاط! يلا يا بنات 💪')}}).on('broadcast',{event:'prog'},({payload})=>{if(payload&&payload.g&&payload.g!==P.g){OTH[payload.g]={s:Object.values(payload.done||{}).reduce((a,b)=>a+b,0),t:Date.now()};const el=document.getElementById('rank');if(el)el.innerHTML=rankHTML()}}).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED'){sendProg();try{lobby.send({type:'broadcast',event:'ping',payload:{}})}catch(e){}}});
  render()}
-function leaveRoom(){try{ch&&SB.removeChannel(ch);lobby&&SB.removeChannel(lobby)}catch(e){}ch=null;lobby=null;peers=[];online=false}
+function leaveRoom(){TM={end:0,dur:0};tickTimer();try{ch&&SB.removeChannel(ch);lobby&&SB.removeChannel(lobby)}catch(e){}ch=null;lobby=null;peers=[];online=false}
 function commit(){G.v=Date.now();G.by=P.n;LS.set('st_'+roomId(),G);if(ch&&online)ch.send({type:'broadcast',event:'state',payload:G});sendProg()}
 let progT=null;
 function sendProg(){if(!lobby)return;clearTimeout(progT);progT=setTimeout(()=>{try{lobby.send({type:'broadcast',event:'prog',payload:{g:P.g,m:peers.length?peers:[P.n],done:G.done,part:G.part,help:G.help||0,c:G.contrib,t:Date.now()}})}catch(e){}},300)}
@@ -160,6 +166,20 @@ function saveRes(i,sc,mx){if(!SB)return;const pr=present(),c={};pr.concat(Object
  SB.rpc('anshita_save2',{p_lesson:LESSONS[P.l].key,p_cls:P.c,p_grp:P.g,p_part:i,p_score:sc,p_max:mx,p_members:pr.slice(0,12),p_contrib:c}).then(({error})=>{if(error){console.warn(error);toast('⚠️ تعذّر حفظ النتيجة، جربن التصويت مرة ثانية')}else toast('💾 انحفظت نتيجة المجموعة')})}
 function voteBtn(i,full){const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length,me=!!v[P.n];
  return '<button class="btn" data-check'+(full?'':' disabled')+'>'+(me?'✔ وافقتِ':'🗳️ أوافق على الإجابات')+' ('+AR(yes)+' من '+AR(need)+')</button>'+(full?(yes?'<span class="muted">وافقت: '+pr.filter(n=>v[n]).map(n=>esc(first(n))).join('، ')+'</span>':'<span class="muted">التصحيح يتم لما توافق أغلب المجموعة</span>'):'<span class="muted">أكملن كل الإجابات أولًا</span>')}
+let TM={end:0,dur:0},tmRang=false;
+const mmss=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return AR(String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'))};
+function alarm(){try{const A=window.__ac||(window.__ac=new(window.AudioContext||window.webkitAudioContext)());if(A.state==='suspended')A.resume();for(let k=0;k<8;k++){const o=A.createOscillator(),g=A.createGain(),t0=A.currentTime+k*.32;o.type='square';o.frequency.value=k%2?660:880;g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.16,t0+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+.28);o.connect(g).connect(A.destination);o.start(t0);o.stop(t0+.3)}}catch(e){}}
+function setTimer(rem,dur){TM=rem>0?{end:Date.now()+rem,dur:dur||rem}:{end:0,dur:0};tmRang=false;tickTimer()}
+function tickTimer(){let el=document.getElementById('tclock');if(!TM.end){if(el)el.remove();return}
+ if(!el){el=document.createElement('div');el.id='tclock';el.className='tclock';el.setAttribute('role','timer');document.body.appendChild(el)}
+ const rem=TM.end-Date.now();el.classList.toggle('warn',rem<=30000&&rem>0);el.classList.toggle('over',rem<=0);
+ el.innerHTML=rem>0?'⏱️ <b>'+mmss(rem)+'</b><small>الوقت المتبقي</small>':'⏰ <b>انتهى الوقت!</b>';
+ if(rem<=0&&!tmRang){tmRang=true;alarm();toast('⏰ انتهى وقت النشاط');setTimeout(()=>{if(TM.end&&TM.end<=Date.now()){TM={end:0,dur:0};tickTimer();if(location.hash==='#teacher')render()}},20000)}}
+setInterval(tickTimer,500);
+function sendTimer(){try{tch&&tch.send({type:'broadcast',event:'timer',payload:{rem:TM.end?TM.end-Date.now():0,dur:TM.dur}})}catch(e){}}
+function startTm(m){setTimer(m*60000,m*60000);sendTimer();render();toast('⏱️ بدأ وقت النشاط: '+AR(m)+' د')}
+function timerHTML(){const lb=m=>m===1?'دقيقة':m===2?'دقيقتين':AR(m)+(m<=10?' دقائق':' دقيقة');const on=TM.end>Date.now();
+ return '<section class="card noprint tmcard"><div class="row" style="justify-content:space-between"><h2 class="sec">⏱️ وقت النشاط</h2>'+(on?'<span class="status on">يعدّ الآن · المدة '+AR(Math.round(TM.dur/60000))+' د</span>':'')+'</div><p class="muted" style="font-size:.85rem">اختاري مدة النشاط، ويبدأ العد التنازلي على أجهزة كل طالبات الشعبة المختارة فوق. ولما ينتهي الوقت يطلع صوت تنبيه عندك وعندهم.</p><div class="row">'+[1,2,3,5,7,10,15].map(m=>'<button class="btn ghost" data-tm="'+m+'">'+lb(m)+'</button>').join('')+'</div><div class="row"><label for="tmc" style="font-weight:800">مدة ثانية (بالدقائق):</label><input id="tmc" type="number" min="1" max="90" inputmode="numeric" style="width:90px;border:2px solid var(--line);border-radius:12px;padding:6px 10px"><button class="btn" data-tmc>▶ ابدئي</button>'+(on?'<button class="btn ghost" data-tmadd>➕ دقيقة زيادة</button><button class="btn ghost" data-tmstop>⏹ إيقاف الوقت</button>':'')+'</div></section>'}
 let OTH={};
 const ORD=['الأول','الثاني','الثالث','الرابع','الخامس','السادس','السابع','الثامن'];
 function starOf(){const c=G&&G.contrib||{};let b=null,m=0;present().forEach(n=>{if((c[n]||0)>m){m=c[n];b=n}});return b}
@@ -207,7 +227,7 @@ function grade(p,a){if(p.type==='order')return a.seq.reduce((s,v,k)=>s+(v===k?1:
 let T={l:0,c:CLASSES[0],ok:false,teams:{},code:'',saved:[],date:'',board:false},tch=null;
 const tname=g=>{const t=LESSONS[T.l].teams[g-1];return t?t[1]+' '+t[0]:'مجموعة '+AR(g)};
 const fmtD=d=>AR(String(d).split('-').reverse().join('/'));
-async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&f.id==='tdate'))render()}catch(e){console.warn(e)}}
+async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&/^(tdate|tmc)$/.test(f.id)))render()}catch(e){console.warn(e)}}
 function savedRows(){const L=LESSONS[T.l],rows=T.saved.filter(r=>r.session_date===T.date),by={};
  rows.forEach(r=>{const o=by[r.grp]=by[r.grp]||{g:r.grp,parts:{},c:{},m:new Set(),t:''};o.parts[r.part]=[r.score,r.max_score];(r.members||[]).forEach(n=>o.m.add(n));Object.entries(r.contrib||{}).forEach(([n,k])=>{o.m.add(n);o.c[n]=Math.max(o.c[n]||0,k)});if(r.updated_at>o.t)o.t=r.updated_at});
  return Object.values(by).sort((a,b)=>a.g-b.g).map(o=>{let m=0;o.star=null;Object.entries(o.c).forEach(([n,k])=>{if(k>m){m=k;o.star=n}});o.tot=Object.values(o.parts).reduce((s,x)=>s+x[0],0);return o})}
@@ -239,12 +259,12 @@ function vTeacher(){const L=LESSONS[T.l];theme(L);
  if(!T.ok){return h+'<section class="card"><label for="tc" style="font-weight:800">رمز المعلمة</label><input id="tc" inputmode="numeric" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn" data-tok>دخول</button><a class="btn ghost" href="#" style="text-decoration:none">رجوع</a></div></section>'+foot}
  h+='<section class="card"><div class="row"><label style="font-weight:800" for="tl">النشاط</label><select id="tl" style="width:auto">'+LESSONS.map((l,i)=>'<option value="'+i+'"'+(i===T.l?' selected':'')+'>'+l.title+'</option>').join('')+'</select><label style="font-weight:800" for="tcls">الشعبة</label><select id="tcls" style="width:auto">'+CLASSES.map(c=>'<option value="'+c+'"'+(c===T.c?' selected':'')+'>'+AR(c)+'</option>').join('')+'</select><button class="btn ghost" data-ping>🔄 تحديث</button><button class="btn" data-board>🏆 لوحة الشرف (للعرض)</button></div><p class="muted" style="font-size:.85rem">تظهر هنا المجموعات المفتوحة الآن على أجهزة الطالبات. النتائج تنحفظ تلقائيًا عند كل تصحيح، وتلقينها تحت في «النتائج المحفوظة».</p></section>';
  const max=L.parts.reduce((a,p)=>a+PM(p),0);
- h+='<div class="teams noprint">'+L.teams.map((t,i)=>{const d=T.teams[i+1];const fresh=d&&Date.now()-d.t<120000;const tot=d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0;
+ h+=timerHTML()+'<div class="teams noprint">'+L.teams.map((t,i)=>{const d=T.teams[i+1];const fresh=d&&Date.now()-d.t<120000;const tot=d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0;
   return '<article class="card team"><div class="hd"><span class="e">'+t[1]+'</span><div><b>'+t[0]+'</b><div class="muted" style="font-size:.8rem">'+(d?(fresh?'🟢 تحل الآن':'⚪ آخر نشاط قبل دقائق'):'لم تدخل بعد')+'</div></div><span class="pts">'+AR(tot)+'<small class="muted" style="font-size:.7rem"> / '+AR(max)+'</small></span></div>'+(d?'<div class="members">'+[...new Set(d.m||[])].map(n=>'<span class="mem"><i></i>'+esc(n)+'</span>').join('')+'</div>':'')+helpHTML(i+1,d)+'<div class="chips">'+L.parts.map((p,k)=>{const s=d&&d.done?d.done[k]:null;return '<span class="'+(s!=null?'ok':d&&d.part===k?'now':'')+'">'+p.e+' '+AR(k+1)+(s!=null?': '+AR(s)+'/'+AR(PM(p)):d&&d.part===k?' ✏️':'')+'</span>'}).join('')+'</div></article>'}).join('')+'</div>'+savedHTML();
  return h+foot}
 function teacherJoin(){if(!SB){toast('تعذّر الاتصال');return}try{tch&&SB.removeChannel(tch)}catch(e){}T.teams={};
  tch=SB.channel('lobby-'+LESSONS[T.l].key+'-'+T.c.replace('/','_'),{config:{broadcast:{self:false}}});
- tch.on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;const o=T.teams[payload.g];if(payload.help&&(!o||o.help!==payload.help)&&Date.now()-payload.help<15*60000)toast('✋ '+tname(payload.g)+' تطلب مساعدة');T.teams[payload.g]=payload;const f=document.activeElement;if(!(f&&f.id==='tdate'))render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})});loadSaved()}
+ tch.on('broadcast',{event:'ping'},()=>{if(TM.end>Date.now())sendTimer()}).on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;const o=T.teams[payload.g];if(payload.help&&(!o||o.help!==payload.help)&&Date.now()-payload.help<15*60000)toast('✋ '+tname(payload.g)+' تطلب مساعدة');T.teams[payload.g]=payload;const f=document.activeElement;if(!(f&&/^(tdate|tmc)$/.test(f.id)))render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})});loadSaved()}
 function render(scrollTop){
  if(location.hash==='#teacher'){const y=scrollY;root.innerHTML=vTeacher();if(scrollTop)scrollTo(0,0);else scrollTo(0,y);return}
  const y=scrollY;root.innerHTML=view==='room'&&G?vRoom():vStart();if(scrollTop)scrollTo(0,0);else scrollTo(0,y)}
@@ -255,6 +275,10 @@ root.addEventListener('click',e=>{
   if('ping' in d){teacherJoin();render()}
   if('board' in d){T.board=!T.board;render(true);if(T.board)try{document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen().catch(()=>{})}catch(e){}else try{document.fullscreenElement&&document.exitFullscreen()}catch(e){}}
   if(d.hok){const g=+d.hok;try{tch&&tch.send({type:'broadcast',event:'helpok',payload:{g}})}catch(e){}if(T.teams[g])T.teams[g].help=0;render()}
+  if(d.tm)startTm(+d.tm);
+  if('tmc' in d){const v=Math.round(+document.getElementById('tmc').value);if(v>=1&&v<=90)startTm(v);else toast('اكتبي عدد الدقائق من ١ إلى ٩٠')}
+  if('tmadd' in d&&TM.end>Date.now()){TM.end+=60000;TM.dur+=60000;tmRang=false;sendTimer();render();toast('➕ انضافت دقيقة')}
+  if('tmstop' in d){setTimer(0,0);sendTimer();render();toast('⏹ توقف الوقت')}
   if('csv' in d)dlCSV();
   if('print' in d)print();
   if('reload' in d)loadSaved();
@@ -288,7 +312,7 @@ root.addEventListener('change',e=>{const t=e.target;
  if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')delete a[+t.dataset.m];else a[+t.dataset.m]=+t.value;chg(G.part)}});
 root.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.un!=null){e.preventDefault();e.target.click()}});
 addEventListener('hashchange',()=>render(true));
-setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&f.id==='tdate'))render()},15000);
+setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&/^(tdate|tmc)$/.test(f.id)))render()},15000);
 setInterval(()=>{if(location.hash==='#teacher'&&T.ok)loadSaved()},45000);
 if(location.hash!=='#teacher'&&P.l!=null&&P.c&&P.n&&P.g&&LESSONS[P.l])joinRoom();else render();
 })();
