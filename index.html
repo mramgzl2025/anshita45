@@ -90,6 +90,11 @@ img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 @media print{.topbar{display:none!important}}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:60}
 .prog{height:14px;border-radius:999px;background:#eef3f1;overflow:hidden}.prog i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--c1),var(--c2));transition:width .6s}
+.turn{display:flex;gap:12px;align-items:center;background:linear-gradient(135deg,#fff7e0,#ffedd5);border:2px solid var(--sun);border-radius:16px;padding:10px 14px;margin-top:8px}.turn .re{font-size:2rem}.turn b{font-size:1.15rem}
+.mem.turnon{background:#ffedd5;border-color:#f59e0b;box-shadow:0 0 0 3px rgb(245 158 11/.25)}button.mem{cursor:pointer;font-family:inherit}
+.cvote{display:flex;flex-wrap:wrap;gap:8px;width:100%}.cvote button{border:2px solid var(--line);background:#fff;border-radius:999px;padding:6px 14px;font-weight:800;font-family:inherit;cursor:pointer}.cvote button[aria-pressed=true]{background:#dcfce7;border-color:#22c55e}
+.mrow2{display:flex;gap:8px;align-items:center}.mrow2 span{font-size:1.4rem;width:2rem;text-align:center}
+.mode{font-size:.8rem;background:#e0f2fe;color:#075985;border-radius:999px;padding:2px 10px;font-weight:800}
 .star{background:#fffbeb;border:1px dashed var(--sun);border-radius:12px;padding:4px 12px;font-size:.92rem}
 .mini{display:flex;flex-direction:column;gap:6px}.mrank{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:4px 12px}.mrank.me{border:2px solid var(--c1);background:#eefbf3;font-weight:800}
 .tclock{position:fixed;top:10px;left:10px;z-index:55;display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;border-radius:16px;padding:6px 14px;box-shadow:0 8px 24px rgb(0 0 0/.25)}
@@ -119,10 +124,11 @@ const LESSONS=window.LESSONS, CLASSES=["1/1","1/2","1/3","1/4","1/5"], CFG=windo
 let SB=null;try{if(CFG.url&&CFG.key&&window.supabase)SB=window.supabase.createClient(CFG.url,CFG.key,{realtime:{params:{eventsPerSecond:20}}})}catch(e){SB=null}
 function shuf(seed,n){let x=(seed*2654435761+12345)>>>0;const r=()=>{x=(x+0x6D2B79F5)>>>0;let t=x;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};const a=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(r()*(i+1));[a[i],a[j]]=[a[j],a[i]]}if(n>2&&a.every((v,i)=>v===i))a.push(a.shift());return a}
 function toast(t){document.querySelectorAll('.toast').forEach(x=>x.remove());const d=document.createElement('div');d.className='toast';d.setAttribute('role','status');d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),2600)}
+const isC=()=>P.mode==='class';
 const first=n=>String(n||'').split(' ')[0];
 const PM=p=>p.type==='order'?p.items.length:p.type==='match'?p.pairs.length:p.type==='sort'?p.cards.length:p.q.length;
 function theme(L){const r=document.documentElement.style;r.setProperty('--c1',L?L.c1:'#15803d');r.setProperty('--c2',L?L.c2:'#0d9488')}
-function hero(L,sub){return '<header class="hero"><span class="e">'+(L?L.emoji:'🤝')+'</span><div><small>'+(L?L.small:'أحياء ١ · '+SCHOOL)+'</small><h1>'+(L?L.title:'موقع الأنشطة الجماعية')+'</h1><small>'+(sub||'حلّي مع مجموعتك في نفس اللحظة، كل واحدة من جهازها 🤝')+'</small></div></header>'}
+function hero(L,sub){return '<header class="hero"><span class="e">'+(L?L.emoji:'🤝')+'</span><div><small>'+(L?L.small:'أحياء ١ · '+SCHOOL)+'</small><h1>'+(L?L.title:'موقع الأنشطة الجماعية')+'</h1><small>'+(sub||(isC()?'حلّن مع بعض على جهاز المجموعة داخل الفصل 🏫🤝':'حلّي مع مجموعتك في نفس اللحظة، كل واحدة من جهازها 🤝'))+'</small></div></header>'}
 const foot='<p class="foot">إعداد المعلمة '+TEACHER+' · '+SCHOOL+'</p>';
 let P=LS.get('me',{});
 let step=0;
@@ -133,8 +139,10 @@ function vStart(){
  h+='<section class="card">';
  if(step===0){h+='<h2 class="sec">١ · اختاري النشاط</h2><div class="grid">'+LESSONS.map((l,i)=>'<button class="opt" data-l="'+i+'" aria-pressed="'+(P.l===i)+'"><span class="e">'+l.emoji+'</span>'+l.title+'</button>').join('')+'</div>'}
  else if(step===1){h+='<h2 class="sec">٢ · اختاري شعبتك</h2><div class="grid">'+CLASSES.map(c=>'<button class="opt" data-c="'+c+'" aria-pressed="'+(P.c===c)+'"><span class="e">🏫</span><bdi>'+AR(c)+'</bdi></button>').join('')+'</div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
- else if(step===2){h+='<h2 class="sec">٣ · اكتبي اسمك</h2><label for="nm" class="muted" style="font-weight:700">اسمك الأول واسم العائلة (مثال: ريم الحربي)</label><input id="nm" maxlength="30" autocomplete="off" value="'+esc(P.n||'')+'" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn ghost" data-back>رجوع</button><button class="btn" data-next>التالي</button></div>'}
- else{h+='<h2 class="sec">٤ · اختاري مجموعتك</h2><p class="muted">'+esc(P.n)+' · اختاري المجموعة التي وزّعتك عليها المعلمة، وستظهر لك زميلاتك فيها.</p><div class="grid">'+L.teams.map((t,i)=>'<button class="opt" data-g="'+(i+1)+'"><span class="e">'+t[1]+'</span>'+AR(i+1)+' · '+t[0]+'</button>').join('')+'</div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
+ else if(step===2){h+='<h2 class="sec">٣ · كيف بتحلّن اليوم؟</h2><div class="grid"><button class="opt" data-mode="solo" aria-pressed="'+(P.mode!=='class')+'"><span class="e">🏠</span>كل طالبة من جهازها<small class="muted" style="display:block;font-size:.8rem">حصة الأونلاين من البيت</small></button><button class="opt" data-mode="class" aria-pressed="'+(P.mode==='class')+'"><span class="e">🏫</span>جهاز واحد للمجموعة<small class="muted" style="display:block;font-size:.8rem">داخل الفصل، المجموعة كلها على نفس الجهاز</small></button></div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
+ else if(step===3){h+='<h2 class="sec">٤ · اكتبي اسمك</h2><label for="nm" class="muted" style="font-weight:700">اسمك الأول واسم العائلة (مثال: ريم الحربي)</label><input id="nm" maxlength="30" autocomplete="off" value="'+esc(P.n||'')+'" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn ghost" data-back>رجوع</button><button class="btn" data-next>التالي</button></div>'}
+ else if(step===4){h+='<h2 class="sec">'+(isC()?'٤':'٥')+' · اختاري مجموعتك</h2><p class="muted">'+(isC()?'اختاري المجموعة التي وزّعتكن عليها المعلمة.':esc(P.n)+' · اختاري المجموعة التي وزّعتك عليها المعلمة، وستظهر لك زميلاتك فيها.')+'</p><div class="grid">'+L.teams.map((t,i)=>'<button class="opt" data-g="'+(i+1)+'"><span class="e">'+t[1]+'</span>'+AR(i+1)+' · '+t[0]+'</button>').join('')+'</div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
+ else{const t=L.teams[P.g-1],old=(P.mg===P.g&&P.mc===P.c&&P.m)||[];h+='<h2 class="sec">٥ · اكتبن أسماء عضوات المجموعة</h2><p class="muted">'+t[1]+' '+t[0]+' · اكتبن اسم كل طالبة موجودة في المجموعة (من ٢ إلى ٦). كل اسم يأخذ دور، والمشاركة تنحسب لكل وحدة.</p><div style="display:flex;flex-direction:column;gap:8px">'+ROLES.map((r,k)=>'<div class="mrow2"><span title="'+r[1]+'">'+r[0]+'</span><input id="mn'+k+'" maxlength="30" autocomplete="off" placeholder="'+AR(k+1)+' · '+r[1]+'" aria-label="اسم الطالبة '+AR(k+1)+' ('+r[1]+')" value="'+esc(old[k]||'')+'" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px;flex:1"></div>').join('')+'</div><p class="muted" style="font-size:.85rem">الطالبة الأولى هي القائدة 👑، والثانية الكاتبة ✍️، وهكذا.</p><div class="row"><button class="btn ghost" data-back>رجوع</button><button class="btn" data-mgo>🚀 ابدأن الحل</button></div>'}
  h+='</section><p class="foot"><a href="#teacher" style="color:inherit">لوحة المعلمة</a> · '+TEACHER+'</p>';
  return h}
 let G=null, ch=null, lobby=null, peers=[], online=false, view='list';
@@ -153,18 +161,23 @@ function joinRoom(){
  lobby.on('broadcast',{event:'ping'},()=>sendProg()).on('broadcast',{event:'timer'},({payload})=>{if(payload){const was=TM.end;setTimer(+payload.rem||0,+payload.dur||0);if(payload.rem>0&&!was)toast('⏱️ بدأ وقت النشاط! يلا يا بنات 💪')}}).on('broadcast',{event:'prog'},({payload})=>{if(payload&&payload.g&&payload.g!==P.g){OTH[payload.g]={s:Object.values(payload.done||{}).reduce((a,b)=>a+b,0),t:Date.now()};const el=document.getElementById('rank');if(el)el.innerHTML=rankHTML()}}).on('broadcast',{event:'helpok'},({payload})=>{if(payload&&payload.g===P.g&&G&&G.help){G.help=0;commit();renderMembers();toast('👩‍🏫 المعلمة شافت طلبكم وجاية لكم')}}).subscribe(s=>{if(s==='SUBSCRIBED'){sendProg();try{lobby.send({type:'broadcast',event:'ping',payload:{}})}catch(e){}}});
  render()}
 function leaveRoom(){TM={end:0,dur:0};tickTimer();try{ch&&SB.removeChannel(ch);lobby&&SB.removeChannel(lobby)}catch(e){}ch=null;lobby=null;peers=[];online=false}
-function commit(){G.v=Date.now();G.by=P.n;LS.set('st_'+roomId(),G);if(ch&&online)ch.send({type:'broadcast',event:'state',payload:G});sendProg()}
+function commit(by){G.v=Date.now();G.by=by||(isC()?curTurn():P.n);LS.set('st_'+roomId(),G);if(ch&&online)ch.send({type:'broadcast',event:'state',payload:G});sendProg()}
 let progT=null;
-function sendProg(){if(!lobby)return;clearTimeout(progT);progT=setTimeout(()=>{try{lobby.send({type:'broadcast',event:'prog',payload:{g:P.g,m:peers.length?peers:[P.n],done:G.done,part:G.part,help:G.help||0,c:G.contrib,t:Date.now()}})}catch(e){}},300)}
+function sendProg(){if(!lobby)return;clearTimeout(progT);progT=setTimeout(()=>{try{lobby.send({type:'broadcast',event:'prog',payload:{g:P.g,m:isC()?P.m:(peers.length?peers:[P.n]),cls:isC()?1:0,done:G.done,part:G.part,help:G.help||0,c:G.contrib,t:Date.now()}})}catch(e){}},300)}
 const ROLES=[['👑','القائدة','تختار الجزء وتدير النقاش، وتتأكد إن الكل شارك برأيه'],['✍️','الكاتبة','تختار الإجابات على الشاشة بعد ما تتفق المجموعة'],['🔍','المدققة','تراجع كل الإجابات قبل التصويت على التصحيح'],['🎤','المتحدثة','تعرض حل المجموعة وتشرحه للفصل'],['⏱️','منظمة الوقت','تتابع الوقت وتنبّه المجموعة عشان تخلص في وقتها'],['🤝','المساندة','تساعد زميلاتها وتشارك برأيها في كل سؤال']];
 let PA=[],JOIN_AT=Date.now();
-function roleMap(){const m={};(PA.length?PA:[{n:P.n,at:JOIN_AT}]).forEach(x=>{if(!(x.n in m)||x.at<m[x.n])m[x.n]=x.at});const o=Object.keys(m).sort((a,b)=>m[a]-m[b]||a.localeCompare(b));const r={};o.forEach((n,k)=>r[n]=Math.min(k,5));return r}
-const present=()=>[...new Set(peers.length?peers:[P.n])];
-function norm(){G.votes=G.votes||{};G.contrib=G.contrib||{};G.help=G.help||0}
-function chg(i){delete G.votes[i];G.contrib[P.n]=(G.contrib[P.n]||0)+1;commit();render()}
+function roleMap(){if(isC()){const r={};P.m.forEach((n,k)=>r[n]=Math.min(k,5));return r}const m={};(PA.length?PA:[{n:P.n,at:JOIN_AT}]).forEach(x=>{if(!(x.n in m)||x.at<m[x.n])m[x.n]=x.at});const o=Object.keys(m).sort((a,b)=>m[a]-m[b]||a.localeCompare(b));const r={};o.forEach((n,k)=>r[n]=Math.min(k,5));return r}
+const present=()=>isC()?P.m.slice():[...new Set(peers.length?peers:[P.n])];
+const curTurn=()=>isC()?P.m[(G.turn||0)%P.m.length]:P.n;
+let NEWFILL=false;
+function norm(){G.votes=G.votes||{};G.contrib=G.contrib||{};G.help=G.help||0;G.turn=G.turn||0}
+function chg(i){delete G.votes[i];const who=curTurn();G.contrib[who]=(G.contrib[who]||0)+1;if(isC()&&NEWFILL)G.turn=((G.turn||0)+1)%P.m.length;NEWFILL=false;commit(who);render()}
 function saveRes(i,sc,mx){if(!SB)return;const pr=present(),c={};pr.concat(Object.keys(G.contrib)).slice(0,12).forEach(n=>c[n]=G.contrib[n]||0);
  SB.rpc('anshita_save2',{p_lesson:LESSONS[P.l].key,p_cls:P.c,p_grp:P.g,p_part:i,p_score:sc,p_max:mx,p_members:pr.slice(0,12),p_contrib:c}).then(({error})=>{if(error){console.warn(error);toast('⚠️ تعذّر حفظ النتيجة، جربن التصويت مرة ثانية')}else toast('💾 انحفظت نتيجة المجموعة')})}
-function voteBtn(i,full){const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length,me=!!v[P.n];
+function voteBtn(i,full){if(isC()){const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length;
+ if(!full)return '<button class="btn" disabled>🗳️ التصويت على التصحيح</button><span class="muted">أكملن كل الإجابات أولًا</span>';
+ return '<div class="card" style="width:100%;padding:10px 14px"><b>🗳️ كل طالبة موافقة على الإجابات تضغط على اسمها ('+AR(yes)+' من '+AR(need)+')</b><div class="cvote" style="margin-top:8px">'+pr.map((n,k)=>'<button data-cv="'+k+'" aria-pressed="'+!!v[n]+'">'+(v[n]?'✔ ':'')+esc(n)+'</button>').join('')+'</div><p class="muted" style="font-size:.85rem">لما توافق أغلب المجموعة يتم التصحيح تلقائيًا.</p></div>'}
+const v=G.votes[i]||{},pr=present(),need=Math.floor(pr.length/2)+1,yes=pr.filter(n=>v[n]).length,me=!!v[P.n];
  return '<button class="btn" data-check'+(full?'':' disabled')+'>'+(me?'✔ وافقتِ':'🗳️ أوافق على الإجابات')+' ('+AR(yes)+' من '+AR(need)+')</button>'+(full?(yes?'<span class="muted">وافقت: '+pr.filter(n=>v[n]).map(n=>esc(first(n))).join('، ')+'</span>':'<span class="muted">التصحيح يتم لما توافق أغلب المجموعة</span>'):'<span class="muted">أكملن كل الإجابات أولًا</span>')}
 let TM={end:0,dur:0},tmRang=false;
 const mmss=ms=>{const s=Math.max(0,Math.ceil(ms/1000));return AR(String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'))};
@@ -190,7 +203,9 @@ function rankHTML(){const L=LESSONS[P.l],me=Object.values(G.done).reduce((a,b)=>
  if(all.length<2)return '<h2 class="sec">🏁 ترتيب المجموعات</h2><p class="muted">لما تبدأ المجموعات الثانية بالحل يطلع ترتيبكم هنا.</p>';
  const rk=all.filter(x=>x.s>me).length,med=['🥇','🥈','🥉'];
  return '<h2 class="sec">🏁 ترتيب مجموعتكم الآن: '+(med[rk]||'')+' '+(ORD[rk]||AR(rk+1))+' من '+AR(all.length)+'</h2><div class="mini">'+all.map(x=>{const r=all.filter(y=>y.s>x.s).length,t=L.teams[x.g-1]||['مجموعة '+AR(x.g),'👥'];return '<div class="mrank'+(x.g===P.g?' me':'')+'"><span>'+(med[r]||AR(r+1))+'</span><span>'+t[1]+' '+t[0]+'</span><b>'+AR(x.s)+'</b></div>'}).join('')+'</div>'}
-function membersHTML(){const L=LESSONS[P.l],t=L.teams[P.g-1];const list=[...new Set(peers.length?peers:[P.n])];
+function membersHTMLc(){const t=LESSONS[P.l].teams[P.g-1],rl=roleMap(),st=starOf(),hp=G&&G.help&&Date.now()-G.help<15*60000,cur=curTurn(),cr=ROLES[rl[cur]??0];
+ return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi> <span class="mode">🏫 جهاز المجموعة</span></b><span class="status '+(online?'on">● متصلة بالمعلمة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+P.m.map((n,k)=>{const r=ROLES[rl[n]??0];return '<button class="mem'+(n===cur?' turnon':'')+'" data-turn="'+k+'" title="'+r[1]+' — اضغطي لتعطيها الدور"><i></i>'+r[0]+' '+esc(n)+(n===st?' 🌟':'')+'</button>'}).join('')+'</div><div class="turn" aria-live="polite"><span class="re">🎯</span><div><b>الدور الآن على: '+esc(cur)+'</b><div class="muted" style="font-size:.85rem">'+cr[0]+' '+cr[1]+' · تقرأ السؤال، وتتناقش المجموعة، وهي تختار الإجابة على الجهاز. بعدها ينتقل الدور تلقائيًا للي بعدها.</div></div></div>'+(st?'<p class="star">🌟 نجمة المشاركة الآن: <b>'+esc(st)+'</b> — شاركن مثلها!</p>':'')+'<div class="row" style="justify-content:space-between"><p class="muted" style="font-size:.85rem">تقدرن تغيّرن صاحبة الدور بالضغط على اسمها. التصحيح يتم بموافقة أغلب المجموعة.</p><button class="btn '+(hp?'help on':'ghost help')+'" data-help>'+(hp?'✋ طلبتنّ المساعدة… (إلغاء)':'✋ نحتاج مساعدة')+'</button></div>'}
+function membersHTML(){if(isC())return membersHTMLc();const L=LESSONS[P.l],t=L.teams[P.g-1];const list=[...new Set(peers.length?peers:[P.n])];
  const rl=roleMap(),st=starOf(),my=ROLES[rl[P.n]??0],hp=G&&G.help&&Date.now()-G.help<15*60000;
  return '<div class="row" style="justify-content:space-between"><b>'+t[1]+' '+t[0]+' · الشعبة <bdi>'+AR(P.c)+'</bdi></b><span class="status '+(online?'on">● متصلة مباشرة':'off">○ جارٍ الاتصال…')+'</span></div><div class="members">'+list.map(n=>{const r=ROLES[rl[n]??0];return '<span class="mem'+(n===P.n?' me':'')+'" title="'+r[1]+'"><i></i>'+r[0]+' '+esc(n)+(n===P.n?' (أنتِ)':'')+(n===st?' 🌟':'')+'</span>'}).join('')+'</div>'+(st?'<p class="star">🌟 نجمة المشاركة الآن: <b>'+esc(st)+'</b>'+(st===P.n?' — هذي أنتِ، كمّلي! 💪':' — شاركن مثلها!')+'</p>':'')+'<div class="role"><span class="re">'+my[0]+'</span><div><b>دورك: '+my[1]+'</b><div class="muted" style="font-size:.85rem">'+my[2]+'</div></div></div><div class="row" style="justify-content:space-between"><p class="muted" style="font-size:.85rem">الموجودات الآن: '+AR(list.length)+' · أي إجابة تختارها واحدة تظهر عند الجميع، والتصحيح يتم بموافقة أغلب المجموعة.</p><button class="btn '+(hp?'help on':'ghost help')+'" data-help>'+(hp?'✋ طلبتنّ المساعدة… (إلغاء)':'✋ نحتاج مساعدة')+'</button></div>'}
 function renderMembers(){const el=document.getElementById('mem');if(el)el.innerHTML=membersHTML()}
@@ -200,7 +215,7 @@ function vRoom(){const L=LESSONS[P.l];theme(L);
   const tot=Object.values(G.done).reduce((a,b)=>a+b,0),max=L.parts.reduce((a,p)=>a+PM(p),0);
   h+='<section class="card"><div class="row" style="justify-content:space-between"><h2 class="sec">أجزاء النشاط</h2><span class="status on" style="background:#eef3f1;color:var(--ink)">درجة المجموعة: '+AR(tot)+' من '+AR(max)+'</span></div>'+progHTML()+'<p class="muted">اختاروا جزءًا معًا، وسيفتح عند كل أعضاء المجموعة.</p><div class="parts">'+L.parts.map((p,i)=>{const d=G.done[i];return '<button class="part'+(d!=null?' done':'')+'" style="--pc:'+p.color+'" data-p="'+i+'"><span class="e">'+p.e+'</span><small>الجزء '+AR(i+1)+'</small><b>'+p.t+'</b><small>'+(d!=null?'✓ '+AR(d)+' من '+AR(PM(p)):AR(PM(p))+' درجات')+'</small></button>'}).join('')+'</div></section>';
   h+='<section class="card" id="rank">'+rankHTML()+'</section>';
-  h+='<div class="row"><button class="btn ghost" data-exit>↩ تغيير النشاط أو المجموعة</button></div>'}
+  h+='<div class="row"><button class="btn ghost" data-exit>↩ تغيير النشاط أو المجموعة'+(isC()?' أو الأسماء':'')+'</button></div>'}
  else h+=vPart();
  return h+foot}
 function A(){const k=G.part;return G.ans[k]||(G.ans[k]={})}
@@ -219,7 +234,7 @@ function vPart(){
  else{p.q.forEach((Q,qi)=>{const ord=Q[1].length===2?[0,1]:shuf(i*101+qi*13+5,Q[1].length);const pk=a[qi];
   h+='<section class="card q"><h3>'+AR(qi+1)+'. '+Q[0]+'</h3>'+(Q[4]?'<img class="qimg" src="'+Q[4]+'" alt="">':'')+'<div class="ans">'+ord.map(oi=>{let c='';if(chk){if(oi===Q[2])c='right';else if(pk===oi)c='wrong'}return '<button data-q="'+qi+'" data-o="'+oi+'" aria-pressed="'+(pk===oi)+'"'+(c?' class="'+c+'"':'')+(chk?' disabled':'')+'>'+Q[1][oi]+'</button>'}).join('')+'</div>'+(chk?'<div class="fb '+(pk===Q[2]?'ok">✓ ':'no">✗ ')+Q[3]+'</div>':'')+'</section>'})}
  h+='</div>';
- if(!chk){const full=complete(p,a);h+='<div class="row"><button class="btn ghost" data-list>↩ أجزاء النشاط</button>'+(p.type==='order'&&(a.seq||[]).length?'<button class="btn ghost" data-clear>مسح الترتيب</button>':'')+voteBtn(i,full)+'</div>'+(G.by?'<p class="who">آخر تعديل: '+esc(first(G.by))+'</p>':'')}
+ if(!chk){const full=complete(p,a);h+='<div class="row"><button class="btn ghost" data-list>↩ أجزاء النشاط</button>'+(p.type==='order'&&(a.seq||[]).length?'<button class="btn ghost" data-clear>مسح الترتيب</button>':'')+voteBtn(i,full)+'</div>'+(G.by?'<p class="who">آخر إجابة: '+esc(first(G.by))+'</p>':'')}
  else{const sc=G.done[i],pm=PM(p);h+='<section class="card score"><div style="font-size:1.5rem">'+'⭐'.repeat(Math.round(sc/pm*5))+'</div><div class="big">'+AR(sc)+' من '+AR(pm)+'</div><p>'+(sc===pm?'ممتاز! العلامة الكاملة للمجموعة 🎉':'راجعن التصحيح معًا 💪')+'</p><div class="row" style="justify-content:center"><button class="btn ghost" data-retry>إعادة المحاولة</button><button class="btn" data-list>العودة لأجزاء النشاط</button></div></section>'}
  return h}
 function complete(p,a){if(p.type==='order')return (a.seq||[]).length===p.items.length;const n=PM(p);for(let k=0;k<n;k++)if(a[k]==null)return false;return true}
@@ -286,22 +301,27 @@ root.addEventListener('click',e=>{
  if(view!=='room'){
   if(d.l!=null){P.l=+d.l;step=1;render(true);return}
   if(d.c){P.c=d.c;step=2;render(true);return}
-  if('back' in d){step=Math.max(0,step-1);render(true);return}
-  if('next' in d){const v=document.getElementById('nm').value.trim().replace(/\s+/g,' ');if(v.length<2){toast('اكتبي اسمك أولًا');return}P.n=v;step=3;render(true);return}
-  if(d.g){P.g=+d.g;LS.set('me',P);joinRoom();scrollTo(0,0);return}
+  if('back' in d){step=step===4&&isC()?2:step===5?4:Math.max(0,step-1);render(true);return}
+  if(d.mode){P.mode=d.mode;step=d.mode==='class'?4:3;render(true);return}
+  if('next' in d){const v=document.getElementById('nm').value.trim().replace(/\s+/g,' ');if(v.length<2){toast('اكتبي اسمك أولًا');return}P.n=v;step=4;render(true);return}
+  if(d.g){P.g=+d.g;if(isC()){step=5;render(true);return}LS.set('me',P);joinRoom();scrollTo(0,0);return}
+  if('mgo' in d){const ns=[];ROLES.forEach((r,k)=>{const v=(document.getElementById('mn'+k).value||'').trim().replace(/\s+/g,' ');if(v.length>=2&&!ns.includes(v))ns.push(v)});if(ns.length<2){toast('اكتبن اسمين على الأقل');return}P.m=ns;P.mg=P.g;P.mc=P.c;P.n='جهاز '+LESSONS[P.l].teams[P.g-1][0];LS.set('me',P);joinRoom();scrollTo(0,0);return}
   return}
  if('exit' in d){leaveRoom();view='start';step=0;render(true);return}
+ if(d.turn!=null&&isC()){G.turn=+d.turn;commit();renderMembers();toast('🎯 الدور الآن على '+first(P.m[G.turn]));return}
  if('help' in d){G.help=G.help&&Date.now()-G.help<15*60000?0:Date.now();commit();renderMembers();toast(G.help?'✋ وصل طلبكم للمعلمة':'تم إلغاء طلب المساعدة');return}
  if(d.p!=null){G.part=+d.p;commit();render(true);return}
  if('list' in d){G.part=null;commit();render(true);return}
  const i=G.part;if(i==null)return;const L=LESSONS[P.l],p=L.parts[i],a=A();
  if('retry' in d){delete G.done[i];G.ans[i]={};commit();render();return}
  if(G.done[i]!=null)return;
- if(d.add!=null){(a.seq=a.seq||[]).push(+d.add);chg(i);return}
+ if(d.add!=null){NEWFILL=true;(a.seq=a.seq||[]).push(+d.add);chg(i);return}
  if(d.un!=null){a.seq.splice(+d.un,1);chg(i);return}
  if('clear' in d){a.seq=[];chg(i);return}
- if(d.s!=null&&d.b!=null){a[+d.s]=+d.b;chg(i);return}
- if(d.q!=null&&d.o!=null){a[+d.q]=+d.o;chg(i);return}
+ if(d.s!=null&&d.b!=null){NEWFILL=a[+d.s]==null;a[+d.s]=+d.b;chg(i);return}
+ if(d.q!=null&&d.o!=null){NEWFILL=a[+d.q]==null;a[+d.q]=+d.o;chg(i);return}
+ if(d.cv!=null&&isC()){if(!complete(p,a))return;const v=G.votes[i]=G.votes[i]||{},nm=P.m[+d.cv];if(v[nm])delete v[nm];else v[nm]=1;const pr=present(),yes=pr.filter(n=>v[n]).length;
+  if(yes*2>pr.length){G.done[i]=grade(p,a);delete G.votes[i];commit();saveRes(i,G.done[i],PM(p));setTimeout(()=>celebrate(G.done[i]===PM(p)),60)}else commit();render();return}
  if('check' in d){if(!complete(p,a))return;const v=G.votes[i]=G.votes[i]||{};v[P.n]=1;const pr=present(),yes=pr.filter(n=>v[n]).length;
   if(yes*2>pr.length){G.done[i]=grade(p,a);delete G.votes[i];commit();saveRes(i,G.done[i],PM(p));setTimeout(()=>celebrate(G.done[i]===PM(p)),60)}else{commit();toast('🗳️ انحسب صوتك، ننتظر موافقة زميلاتك')}render();return}
 });
@@ -309,12 +329,12 @@ root.addEventListener('change',e=>{const t=e.target;
  if(t.id==='tl'){T.l=+t.value;teacherJoin();render();return}
  if(t.id==='tcls'){T.c=t.value;teacherJoin();render();return}
  if(t.id==='tdate'){T.date=t.value;render();return}
- if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')delete a[+t.dataset.m];else a[+t.dataset.m]=+t.value;chg(G.part)}});
+ if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')delete a[+t.dataset.m];else{NEWFILL=a[+t.dataset.m]==null;a[+t.dataset.m]=+t.value}chg(G.part)}});
 root.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.un!=null){e.preventDefault();e.target.click()}});
 addEventListener('hashchange',()=>render(true));
 setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&/^(tdate|tmc)$/.test(f.id)))render()},15000);
 setInterval(()=>{if(location.hash==='#teacher'&&T.ok)loadSaved()},45000);
-if(location.hash!=='#teacher'&&P.l!=null&&P.c&&P.n&&P.g&&LESSONS[P.l])joinRoom();else render();
+if(location.hash!=='#teacher'&&P.l!=null&&P.c&&P.n&&P.g&&LESSONS[P.l]&&(P.mode!=='class'||(P.m&&P.m.length>1)))joinRoom();else render();
 })();
 </script>
 </body>
