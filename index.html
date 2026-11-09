@@ -135,14 +135,16 @@ function theme(L){const r=document.documentElement.style;r.setProperty('--c1',L?
 function hero(L,sub){return '<header class="hero"><span class="e">'+(L?L.emoji:'🤝')+'</span><div><small>'+(L?L.small:'أحياء ١ · '+SCHOOL)+'</small><h1>'+(L?L.title:'موقع الأنشطة الجماعية')+'</h1><small>'+(sub||(isC()?'حلّن مع بعض على جهاز المجموعة داخل الفصل 🏫🤝':'حلّي مع مجموعتك في نفس اللحظة، كل واحدة من جهازها 🤝'))+'</small></div></header>'}
 const foot='<p class="foot">إعداد المعلمة '+TEACHER+' · '+SCHOOL+'</p>';
 let P=LS.get('me',{});
-let step=0;
+let step=0,CHO=null;const CHAPS=[{t:'الفصل السادس',e:'📚',sub:'خصائص الحيوانات (١) و (٢)',keys:['AN1','AN2']}];
 function vStart(){
  const L=P.l!=null?LESSONS[P.l]:null;theme(L);
  let h='<nav class="topbar"><span class="tb-t">🤝 موقع الأنشطة الجماعية</span><a class="tbtn" href="#teacher">👩‍🏫 لوحة المعلمة</a></nav>'+hero(L);
  if(!SB)h+='<div class="card" style="border-color:var(--bad)"><b>⚠️ تعذّر الاتصال بخدمة الحل المباشر.</b><p class="muted">تأكدي من اتصال الإنترنت ثم حدّثي الصفحة.</p></div>';
  h+='<section class="card">';
  if(step===0&&canResume()){const t=LESSONS[P.l].teams[P.g-1];h+='<div class="card resume" style="box-shadow:none"><b>👋 آخر دخول لك:</b><div>📘 '+LESSONS[P.l].title+' · 🏫 الشعبة <bdi>'+AR(P.c)+'</bdi> · '+t[1]+' '+t[0]+'</div><div>'+(isC()?'🏫 جهاز المجموعة: '+P.m.map(esc).join('، '):'👤 باسم: '+esc(P.n))+'</div><div class="row"><button class="btn" data-resume>✅ نعم، كمّلي في نفس المجموعة</button></div><p class="muted" style="font-size:.85rem">إذا هذا مو درس اليوم أو مو مجموعتك أو اسمك غلط، اختاري الدرس من جديد تحت 👇</p></div>'}
- if(step===0){h+='<h2 class="sec">١ · اختاري الدرس</h2><div class="grid">'+LESSONS.map((l,i)=>'<button class="opt" data-l="'+i+'" aria-pressed="'+(P.l===i)+'"><span class="e">'+l.emoji+'</span>'+l.title+'</button>').join('')+'</div>'}
+ if(step===0){const lt=i=>{const l=LESSONS[i];return '<button class="opt" data-l="'+i+'" aria-pressed="'+(P.l===i)+'"><span class="e">'+l.emoji+'</span>'+l.title+'</button>'};
+  if(CHO!=null){const g=CHAPS[CHO];h+='<h2 class="sec">١ · '+g.e+' '+g.t+': اختاري الدرس</h2><div class="grid">'+LESSONS.map((l,i)=>g.keys.includes(l.key)?lt(i):'').join('')+'</div><div class="row"><button class="btn ghost" data-chback>↩ رجوع لكل الدروس</button></div>'}
+  else h+='<h2 class="sec">١ · اختاري الدرس</h2><div class="grid">'+CHAPS.map((g,k)=>'<button class="opt" data-chap="'+k+'" style="border-color:var(--c1);background:#eefbf3"><span class="e">'+g.e+'</span>'+g.t+'<small class="muted" style="display:block;font-size:.8rem">'+g.sub+'</small></button>').join('')+LESSONS.map((l,i)=>CHAPS.some(g=>g.keys.includes(l.key))?'':lt(i)).join('')+'</div>'}
  else if(step===1){h+='<h2 class="sec">٢ · اختاري شعبتك</h2><div class="grid">'+CLASSES.map(c=>'<button class="opt" data-c="'+c+'" aria-pressed="'+(P.c===c)+'"><span class="e">🏫</span><bdi>'+AR(c)+'</bdi></button>').join('')+'</div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
  else if(step===2){h+='<h2 class="sec">٣ · كيف بتحلّن اليوم؟</h2><div class="grid"><button class="opt" data-mode="solo" aria-pressed="'+(P.mode!=='class')+'"><span class="e">🏠</span>كل طالبة من جهازها<small class="muted" style="display:block;font-size:.8rem">حصة الأونلاين من البيت</small></button><button class="opt" data-mode="class" aria-pressed="'+(P.mode==='class')+'"><span class="e">🏫</span>جهاز واحد للمجموعة<small class="muted" style="display:block;font-size:.8rem">داخل الفصل، المجموعة كلها على نفس الجهاز</small></button></div><div class="row"><button class="btn ghost" data-back>رجوع</button></div>'}
  else if(step===3){h+='<h2 class="sec">٤ · اكتبي اسمك</h2><label for="nm" class="muted" style="font-weight:700">اسمك الأول واسم العائلة (مثال: ريم الحربي)</label><input id="nm" maxlength="30" autocomplete="off" value="'+esc(P.n||'')+'" style="border:2px solid var(--line);border-radius:12px;padding:8px 12px"><div class="row"><button class="btn ghost" data-back>رجوع</button><button class="btn" data-next>التالي</button></div>'}
@@ -327,7 +329,9 @@ root.addEventListener('click',e=>{
   return}
  if(view!=='room'){
   if('resume' in d){joinRoom();scrollTo(0,0);return}
-  if(d.l!=null){P.l=+d.l;step=1;render(true);return}
+  if(d.chap!=null){CHO=+d.chap;render(true);return}
+  if('chback' in d){CHO=null;render(true);return}
+  if(d.l!=null){P.l=+d.l;CHO=null;step=1;render(true);return}
   if(d.c){P.c=d.c;step=2;render(true);return}
   if('back' in d){step=step===4&&isC()?2:step===5?4:Math.max(0,step-1);render(true);return}
   if(d.mode){P.mode=d.mode;step=d.mode==='class'?4:3;render(true);return}
