@@ -121,7 +121,8 @@ img.qimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 .tmsg{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:70;width:min(560px,calc(100vw - 24px));background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border-radius:18px;padding:12px 16px;box-shadow:0 14px 34px rgb(0 0 0/.3);display:flex;gap:10px;align-items:center;font-weight:800;font-size:1.1rem}
 .tmsg button{margin-inline-start:auto;background:rgb(255 255 255/.2);border:0;color:#fff;border-radius:10px;padding:2px 10px}
 .dup{color:var(--bad);font-weight:800}
-@media print{.tmsg,.ptm{display:none!important}}
+@media print{.tmsg,.ptm{display:none!important}body.pw #saved{display:none!important}body.pw .wrap>section#week{display:flex!important;box-shadow:none;border:0}body.pw #week .noprint{display:none!important}}
+.sig{display:flex;justify-content:space-between;gap:20px;margin-top:24px;font-weight:800}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -310,7 +311,7 @@ function grade(p,a){if(p.type==='order')return (a.seq||[]).reduce((s,v,k)=>s+(v=
 let T={l:0,c:CLASSES[0],ok:false,teams:{},code:'',saved:[],date:'',board:false},tch=null;
 const tname=g=>{const t=LESSONS[T.l].teams[g-1];return t?t[1]+' '+t[0]:'مجموعة '+AR(g)};
 const fmtD=d=>AR(String(d).split('-').reverse().join('/'));
-async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&/^(tdate|tmc)$/.test(f.id)))render()}catch(e){console.warn(e)}}
+async function loadSaved(){if(!SB||!T.ok)return;try{const {data,error}=await SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:LESSONS[T.l].key,p_cls:T.c});if(error)throw error;T.saved=data||[];const ds=[...new Set(T.saved.map(r=>r.session_date))];if(!ds.includes(T.date))T.date=ds[0]||'';const f=document.activeElement;if(!(f&&/^(tdate|tmc|wks)$/.test(f.id)))render()}catch(e){console.warn(e)}}
 function savedRows(){const L=LESSONS[T.l],rows=T.saved.filter(r=>r.session_date===T.date),by={};
  rows.forEach(r=>{const o=by[r.grp]=by[r.grp]||{g:r.grp,parts:{},c:{},m:new Set(),t:''};o.parts[r.part]=[r.score,r.max_score];(r.members||[]).forEach(n=>o.m.add(n));Object.entries(r.contrib||{}).forEach(([n,k])=>{o.m.add(n);o.c[n]=Math.max(o.c[n]||0,k)});if(r.updated_at>o.t)o.t=r.updated_at});
  return Object.values(by).sort((a,b)=>a.g-b.g).map(o=>{let m=0;o.star=null;Object.entries(o.c).forEach(([n,k])=>{if(k>m){m=k;o.star=n}});o.tot=Object.values(o.parts).reduce((s,x)=>s+x[0],0);return o})}
@@ -347,8 +348,40 @@ function vTeacher(){const L=LESSONS[T.l];theme(L);
  h+='<section class="card"><div class="row"><label style="font-weight:800" for="tl">الدرس</label><select id="tl" style="width:auto">'+LESSONS.map((l,i)=>'<option value="'+i+'"'+(i===T.l?' selected':'')+'>'+l.title+'</option>').join('')+'</select><label style="font-weight:800" for="tcls">الشعبة</label><select id="tcls" style="width:auto">'+CLASSES.map(c=>'<option value="'+c+'"'+(c===T.c?' selected':'')+'>'+AR(c)+'</option>').join('')+'</select><button class="btn ghost" data-ping>🔄 تحديث</button><button class="btn" data-board>🏆 لوحة الشرف (للعرض)</button></div><p class="muted" style="font-size:.85rem">تظهر هنا المجموعات المفتوحة الآن على أجهزة الطالبات. النتائج تنحفظ تلقائيًا عند كل تصحيح، وتلقينها تحت في «النتائج المحفوظة».</p></section>';
  const max=L.parts.reduce((a,p)=>a+PM(p),0);
  h+=timerHTML()+'<section class="card noprint"><h2 class="sec">📢 رسالة لكل المجموعات</h2><p class="muted" style="font-size:.85rem">تطلع الرسالة فوق شاشة كل الطالبات في الشعبة المختارة مع صوت تنبيه. ولتكلمين مجموعة وحدة ادخلي عليها 👁️.</p><div class="row">'+QM.map((q,k)=>'<button class="btn ghost" data-qall="'+k+'" style="padding:4px 12px">'+q+'</button>').join('')+'</div><div class="row"><input id="tallin" class="chatin" maxlength="200" autocomplete="off" placeholder="اكتبي رسالتك لكل المجموعات…" aria-label="رسالة لكل المجموعات"><button class="btn" data-tall>📢 إرسال للكل</button></div></section><div class="teams noprint">'+L.teams.map((t,i)=>{const d=T.teams[i+1];const fresh=d&&Date.now()-d.t<120000;const tot=d?Object.values(d.done||{}).reduce((a,b)=>a+b,0):0;
-  return '<article class="card team"><div class="hd"><span class="e">'+t[1]+'</span><div><b>'+t[0]+'</b><div class="muted" style="font-size:.8rem">'+(d?(fresh?'🟢 تحل الآن':'⚪ آخر نشاط قبل دقائق'):'لم تدخل بعد')+'</div></div><span class="pts">'+AR(tot)+'<small class="muted" style="font-size:.7rem"> / '+AR(max)+'</small></span></div>'+memChips(d)+helpHTML(i+1,d)+(d?'<button class="btn ghost" data-watch="'+(i+1)+'" style="padding:4px 14px">👁️ ادخلي على المجموعة: تابعي حلّهم وكلّميهم 💬</button>':'')+'<div class="chips">'+L.parts.map((p,k)=>{const s=d&&d.done?d.done[k]:null;return '<span class="'+(s!=null?'ok':d&&d.part===k?'now':'')+'">'+p.e+' '+AR(k+1)+(s!=null?': '+AR(s)+'/'+AR(PM(p)):d&&d.part===k?' ✏️':'')+'</span>'}).join('')+'</div></article>'}).join('')+'</div>'+savedHTML()+partHTML();
+  return '<article class="card team"><div class="hd"><span class="e">'+t[1]+'</span><div><b>'+t[0]+'</b><div class="muted" style="font-size:.8rem">'+(d?(fresh?'🟢 تحل الآن':'⚪ آخر نشاط قبل دقائق'):'لم تدخل بعد')+'</div></div><span class="pts">'+AR(tot)+'<small class="muted" style="font-size:.7rem"> / '+AR(max)+'</small></span></div>'+memChips(d)+helpHTML(i+1,d)+(d?'<button class="btn ghost" data-watch="'+(i+1)+'" style="padding:4px 14px">👁️ ادخلي على المجموعة: تابعي حلّهم وكلّميهم 💬</button>':'')+'<div class="chips">'+L.parts.map((p,k)=>{const s=d&&d.done?d.done[k]:null;return '<span class="'+(s!=null?'ok':d&&d.part===k?'now':'')+'">'+p.e+' '+AR(k+1)+(s!=null?': '+AR(s)+'/'+AR(PM(p)):d&&d.part===k?' ✏️':'')+'</span>'}).join('')+'</div></article>'}).join('')+'</div>'+savedHTML()+partHTML()+weekHTML();
  return h+foot}
+const addD=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*864e5).toISOString().slice(0,10);
+const wkStart=()=>{const t=today();return addD(t,-new Date(t+'T00:00:00Z').getUTCDay())};
+const nmz=x=>String(x||'').trim().replace(/\s+/g,' ');
+T.wk={start:'',cls:'',rows:null,raw:[],loading:false};
+async function loadWeek(){if(!SB||!T.ok)return;const st=T.wk.start||wkStart(),en=addD(st,6);T.wk.loading=true;T.wk.cls=T.c;render();
+ try{const all=await Promise.all(LESSONS.map(L=>SB.rpc('anshita_results_get',{p_code:T.code,p_lesson:L.key,p_cls:T.c}).then(({data,error})=>{if(error)throw error;return (data||[]).map(r=>Object.assign({},r,{lk:L.key,lt:L.title,ln:L.parts}))})));
+  const raw=all.flat().filter(r=>r.session_date>=st&&r.session_date<=en).sort((a,b)=>a.session_date.localeCompare(b.session_date)||a.lk.localeCompare(b.lk)||a.grp-b.grp||a.part-b.part);
+  const by={};raw.forEach(r=>{const k=r.lk+'|'+r.session_date+'|'+r.grp,cm={};Object.entries(r.contrib||{}).forEach(([n,v])=>cm[nmz(n)]=v);const mem=new Set((r.members||[]).map(nmz).concat(Object.keys(cm)));
+   mem.forEach(n=>{if(!n)return;const o=by[n]=by[n]||{n,g:new Set(),days:new Set(),les:new Set(),acts:0,sc:0,mx:0,c:{}};o.g.add(r.grp);o.days.add(r.session_date);o.les.add(r.lt);o.acts++;o.sc+=r.score||0;o.mx+=r.max_score||0;o.c[k]=Math.max(o.c[k]||0,cm[n]||0)})});
+  T.wk.raw=raw;T.wk.rows=Object.values(by).map(o=>{o.tc=Object.values(o.c).reduce((a,b)=>a+b,0);return o}).sort((a,b)=>Math.min(...a.g)-Math.min(...b.g)||a.n.localeCompare(b.n,'ar'))}
+ catch(e){console.warn(e);toast('⚠️ تعذّر جلب تقرير الأسبوع، جربي مرة ثانية');T.wk.rows=null}
+ T.wk.loading=false;render()}
+const wkEval=o=>o.tc===0?'⚠️ حضرت بدون مشاركة':o.tc<o.acts?'🟡 مشاركة قليلة':'✅ مشاركة فعّالة';
+function weekHTML(){const st=T.wk.start||wkStart(),en=addD(st,6),rows=T.wk.cls===T.c?T.wk.rows:null;
+ let h='<section class="card" id="week"><h2 class="sec">📅 تقرير الأسبوع: إثبات شغل الطالبات</h2><p class="muted noprint" style="font-size:.85rem">يجمع كل الدروس والأنشطة اللي اعتمدتها المجموعات في الشعبة المختارة فوق خلال الأسبوع: مين حضرت، كم يوم، وكم مرة شاركت بنفسها في الحل، ودرجة مجموعتها. تحمّلينه نهاية كل أسبوع وتحتفظين فيه كإثبات.</p>';
+ h+='<div class="row noprint"><label for="wks" style="font-weight:800">بداية الأسبوع (الأحد):</label><input id="wks" type="date" value="'+st+'" style="border:2px solid var(--line);border-radius:12px;padding:6px 10px"><button class="btn" data-wkload>'+(T.wk.loading?'⏳ جاري التجهيز…':'📊 اعرضي تقرير الأسبوع')+'</button></div>';
+ h+='<p class="printonly"><b>'+SCHOOL+' · أحياء ١ · المعلمة '+TEACHER+'</b><br>تقرير مشاركة الطالبات في الأنشطة الجماعية · الشعبة '+AR(T.c)+' · الأسبوع من '+fmtD(st)+' إلى '+fmtD(en)+'</p>';
+ if(!rows)return h+'</section>';
+ if(!rows.length)return h+'<p class="muted">ما فيه أنشطة معتمدة لهذي الشعبة في هذا الأسبوع.</p></section>';
+ const days=[...new Set(T.wk.raw.map(r=>r.session_date))];
+ h+='<p style="font-weight:800">الشعبة <bdi>'+AR(T.c)+'</bdi> · من '+fmtD(st)+' إلى '+fmtD(en)+' · أيام الحصص المسجلة: '+AR(days.length)+' ('+days.map(fmtD).join('، ')+') · عدد الطالبات: '+AR(rows.length)+'</p>';
+ h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>#</th><th>اسم الطالبة</th><th>المجموعة</th><th>أيام الحضور</th><th>الدروس</th><th>الأنشطة اللي حلّتها مع مجموعتها</th><th>عدد مشاركاتها بنفسها</th><th>درجة مجموعتها</th><th>التقييم</th></tr></thead><tbody>'+rows.map((o,k)=>'<tr><td>'+AR(k+1)+'</td><td class="mm">'+esc(o.n)+'</td><td>'+[...o.g].map(tname).join('<br>')+(o.g.size>1?' <span class="dup">⚠️</span>':'')+'</td><td>'+AR(o.days.size)+' من '+AR(days.length)+'</td><td style="font-size:.8rem">'+[...o.les].join('<br>')+'</td><td>'+AR(o.acts)+'</td><td><b>'+AR(o.tc)+'</b></td><td>'+AR(o.sc)+' من '+AR(o.mx)+'</td><td>'+wkEval(o)+'</td></tr>').join('')+'</tbody></table></div>';
+ h+='<p class="muted" style="font-size:.8rem">«عدد مشاركاتها بنفسها» = كم مرة اختارت الطالبة أو عدّلت إجابة من جهازها. الطالبة اللي ما يطلع اسمها هنا ما دخلت أي نشاط انعتمد هذا الأسبوع. ⚠️ جنب المجموعة = دخلت أكثر من مجموعة. إذا تكرر اسم طالبة بكتابتين مختلفتين، اعتبريهم نفس الطالبة.</p>';
+ h+='<div class="sig printonly"><span>توقيع المعلمة: ....................</span><span>التاريخ: '+fmtD(today())+'</span></div>';
+ return h+'<div class="row noprint"><button class="btn" data-wkcsv>⬇️ تحميل تقرير الأسبوع (Excel)</button><button class="btn ghost" data-wkprint>🖨️ طباعة أو حفظ PDF</button></div></section>'}
+function dlWeek(){const q=v=>'"'+String(v).replace(/"/g,'""')+'"',st=T.wk.start||wkStart(),en=addD(st,6),rows=T.wk.rows||[],days=[...new Set(T.wk.raw.map(r=>r.session_date))],D=d=>String(d).split('-').reverse().join('/'),tn=g=>tname(g).replace(/^\S+\s/,'');
+ const L=[[SCHOOL+' · أحياء ١ · المعلمة '+TEACHER].map(q).join(','),['تقرير مشاركة الطالبات · الشعبة '+T.c+' · من '+D(st)+' إلى '+D(en)].map(q).join(','),'',
+  ['م','اسم الطالبة','المجموعة','أيام الحضور','من أيام','الدروس','الأنشطة اللي حلّتها مع مجموعتها','عدد مشاركاتها بنفسها','درجة مجموعتها','من','التقييم'].map(q).join(',')]
+  .concat(rows.map((o,k)=>[k+1,o.n,[...o.g].map(tn).join(' + '),o.days.size,days.length,[...o.les].join(' + '),o.acts,o.tc,o.sc,o.mx,wkEval(o).replace(/^\S+\s/,'')].map(q).join(',')));
+ L.push('',[q('التفاصيل حسب اليوم والنشاط')].join(','),['التاريخ','الدرس','المجموعة','النشاط','الدرجة','من','العضوات (عدد مشاركات كل وحدة)'].map(q).join(','));
+ T.wk.raw.forEach(r=>{const p=r.ln&&r.ln[r.part];L.push([D(r.session_date),r.lt,tn(r.grp),NN(r.part)+(p?' · '+p.t:''),r.score,r.max_score,(r.members||[]).map(n=>n+' ('+((r.contrib||{})[n]||0)+')').join('، ')].map(q).join(','))});
+ dlFile(L,'تقرير-الأسبوع-'+T.c.replace('/','-')+'-'+st+'.csv')}
 function partRows(){const date=T.date||today(),by={};
  savedRows().forEach(o=>[...o.m].forEach(n=>{const r=by[n]=by[n]||{n,g:new Set(),c:0,saved:true};r.g.add(o.g);r.c=Math.max(r.c,o.c[n]||0)}));
  if(date===today())Object.entries(T.teams).forEach(([g,d])=>[...new Set(d.m||[])].forEach(n=>{const r=by[n]=by[n]||{n,g:new Set(),c:0,saved:false};r.g.add(+g);r.c=Math.max(r.c,(d.c||{})[n]||0)}));
@@ -379,7 +412,7 @@ function vWatch(){const L=LESSONS[T.l],g=W.g,t=L.teams[g-1],d=T.teams[g]||{},max
  return h+foot}
 function teacherJoin(){if(!SB){toast('تعذّر الاتصال');return}try{tch&&SB.removeChannel(tch)}catch(e){}T.teams={};
  tch=SB.channel('lobby-'+LESSONS[T.l].key+'-'+T.c.replace('/','_'),{config:{broadcast:{self:false}}});
- tch.on('broadcast',{event:'ping'},()=>{if(TM.end>Date.now())sendTimer()}).on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;const o=T.teams[payload.g];if(payload.help&&(!o||o.help!==payload.help)&&Date.now()-payload.help<15*60000)toast('✋ '+tname(payload.g)+' تطلب مساعدة');payload.m=[...new Set((o&&o.m||[]).concat(payload.m||[]))];T.teams[payload.g]=payload;const f=document.activeElement;if(!(f&&/^(tdate|tmc)$/.test(f.id)))render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})});loadSaved()}
+ tch.on('broadcast',{event:'ping'},()=>{if(TM.end>Date.now())sendTimer()}).on('broadcast',{event:'prog'},({payload})=>{if(!payload||!payload.g)return;const o=T.teams[payload.g];if(payload.help&&(!o||o.help!==payload.help)&&Date.now()-payload.help<15*60000)toast('✋ '+tname(payload.g)+' تطلب مساعدة');payload.m=[...new Set((o&&o.m||[]).concat(payload.m||[]))];T.teams[payload.g]=payload;const f=document.activeElement;if(!(f&&/^(tdate|tmc|wks)$/.test(f.id)))render()}).subscribe(s=>{if(s==='SUBSCRIBED')tch.send({type:'broadcast',event:'ping',payload:{}})});loadSaved()}
 const KEEP=['chatin','tchatin','tallin','ulc'];
 function render(scrollTop){const kp=KEEP.map(id=>{const e=document.getElementById(id);return e?[id,e.value,document.activeElement===e,e.selectionStart]:null}).filter(Boolean);
  const y=scrollY;root.innerHTML=location.hash==='#teacher'?vTeacher():view==='room'&&G?vRoom():vStart();if(scrollTop)scrollTo(0,0);else scrollTo(0,y);
@@ -405,9 +438,12 @@ root.addEventListener('click',e=>{
   if('tsend' in d){const e=document.getElementById('tchatin');if(sendT(e.value,false)){e.value='';render()}return}
   if('tall' in d){const e=document.getElementById('tallin');if(sendT(e.value,true))e.value='';return}
   if('pcsv' in d){dlPart();return}
+  if('wkload' in d){const e=document.getElementById('wks');if(e&&e.value)T.wk.start=e.value;loadWeek();return}
+  if('wkcsv' in d){dlWeek();return}
+  if('wkprint' in d){document.body.classList.add('pw');setTimeout(()=>{print();setTimeout(()=>document.body.classList.remove('pw'),500)},50);return}
   if('unwatch' in d){stopWatch();render(true);return}
   if('csv' in d)dlCSV();
-  if('print' in d)print();
+  if('print' in d){document.body.classList.remove('pw');print()}
   if('reload' in d)loadSaved();
   return}
  if(view!=='room'){
@@ -443,12 +479,13 @@ root.addEventListener('click',e=>{
 });
 root.addEventListener('change',e=>{const t=e.target;
  if(t.id==='tl'){T.l=+t.value;teacherJoin();render();return}
- if(t.id==='tcls'){T.c=t.value;teacherJoin();render();return}
+ if(t.id==='tcls'){T.c=t.value;T.wk.rows=null;teacherJoin();render();return}
+ if(t.id==='wks'){T.wk.start=t.value;T.wk.rows=null;render();return}
  if(t.id==='tdate'){T.date=t.value;render();return}
  if(t.dataset.m!=null&&G&&G.part!=null&&G.done[G.part]==null){const a=A();if(t.value==='')setAns(G.part,+t.dataset.m,null);else{NEWFILL=a[+t.dataset.m]==null;setAns(G.part,+t.dataset.m,+t.value)}chg(G.part)}});
 root.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){const m={chatin:'[data-send]',tchatin:'[data-tsend]',tallin:'[data-tall]',ulc:'[data-ulok]',tc:'[data-tok]'}[e.target.id];if(m){e.preventDefault();const b=root.querySelector(m);b&&b.click();return}}if((e.key==='Enter'||e.key===' ')&&e.target.dataset&&e.target.dataset.un!=null){e.preventDefault();e.target.click()}});
 addEventListener('hashchange',()=>render(true));
-setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&/^(tdate|tmc)$/.test(f.id)))render()},15000);
+setInterval(()=>{const f=document.activeElement;if(location.hash==='#teacher'&&T.ok&&!(f&&/^(tdate|tmc|wks)$/.test(f.id)))render()},15000);
 setInterval(()=>{if(location.hash==='#teacher'&&T.ok)loadSaved()},45000);
 if(LK&&location.hash!=='#teacher'&&P.l!=null&&LESSONS[P.l]){applyLock();joinRoom()}else render();
 })();
