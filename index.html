@@ -191,12 +191,12 @@ function ticket(i,name){const p=LESSONS[P.l].parts[i],h=hsh(name+'|'+i+'|'+LESSO
  return{q,opts:shuf(h+3,opts.length).map(x=>opts[x])}}
 const tkOf=(n,i)=>G.tk&&G.tk[n]&&G.tk[n][i];
 function revealed(i){if(P.n==='__teacher__')return true;if(isC())return !!G.rv[i]||P.m.every(n=>tkOf(n,i));return !!tkOf(P.n,i)}
-function ticketHTML(i){let h='<section class="card tkc"><h2 class="sec">🎟️ تذكرة خروج: سؤال فردي</h2><p>✅ القائدة اعتمدت حل المجموعة. '+(isC()?'كل طالبة تضغط على اسمها وتجاوب سؤالها <b>بنفسها</b> بدون مساعدة، وبعدها يطلع التصحيح للكل.':'جاوبي سؤالك <b>بنفسك</b> بدون مساعدة، وبعدها يطلع لك التصحيح ودرجة المجموعة.')+'</p><p class="muted" style="font-size:.85rem">هذا السؤال يحسب لك أنتِ لحالك، ويوضّح للمعلمة إنك فاهمة حتى لو ما كنتِ تضغطين كثير 💪</p>';
+function ticketHTML(i){const ns=isC()?P.m:[P.n],left=ns.filter(n=>!tkOf(n,i));if(P.n==='__teacher__'||!left.length)return '';
+ let h='<section class="card tkc"><h2 class="sec">🎟️ تحدّي فردي (اختياري)</h2><p class="muted" style="font-size:.9rem">'+(isC()?'اللي تبي تثبت فهمها تضغط على اسمها وتجاوب سؤال لحالها.':'تبين تثبتين فهمك؟ جاوبي هذا السؤال لحالك، ويطلع للمعلمة إنك فاهمة 💪')+' مو إجباري.</p>';
  let who=isC()?TKSEL:P.n;
  if(isC()){h+='<div class="tkn">'+P.m.map(n=>{const d=tkOf(n,i);return '<button data-tkn="'+esc(n)+'"'+(d?' class="dn" disabled':'')+(TKSEL===n?' aria-pressed="true" style="border-color:#8b5cf6"':'')+'>'+(d?'✓ ':'')+esc(n)+'</button>'}).join('')+'</div>';if(who&&tkOf(who,i))who=null}
  if(who){const t=ticket(i,who);h+='<div class="q" style="margin-top:8px"><b>'+(isC()?'سؤال '+esc(who)+': ':'')+t.q+'</b><div class="ans">'+t.opts.map((o,k)=>'<button data-tk="'+k+'">'+o[0]+'</button>').join('')+'</div></div>'}
- if(isC()&&(isC()))h+='<div class="row"><button class="btn ghost" data-rv style="padding:4px 14px;font-size:.85rem">👑 وحدة غايبة؟ القائدة تعرض التصحيح للكل</button></div>';
- return h+'</section><div class="row"><button class="btn ghost" data-list>↩ قائمة الأنشطة</button></div>'}
+ return h+'</section>'}
 let TKSAVE={};
 const today=()=>new Date(Date.now()+3*3600e3).toISOString().slice(0,10);
 let LK=LS.get('lock',null);if(LK&&LK.d!==today())LK=null;let UNL=false;
@@ -327,7 +327,6 @@ function A(){const k=G.part;return G.ans[k]||(G.ans[k]={})}
 function vPart(){
  const L=LESSONS[P.l],i=G.part,p=L.parts[i],a=A(),chk=G.done[i]!=null;
  let h='<section class="card" style="border-top:6px solid '+p.color+';--pc:'+p.color+'"><small class="muted" style="font-weight:800">'+NN(i)+' '+p.e+'</small><h2 style="font-size:1.2rem">'+p.t+'</h2>'+(p.intro?'<p class="muted">'+p.intro+'</p>':'')+'</section>'+(chk?'':'<div class="ptm'+(tOver(i)?' over':'')+'" id="ptm" role="timer">'+ptmHTML(i)+'</div>')+'<div style="--pc:'+p.color+';display:flex;flex-direction:column;gap:12px">';
- if(chk&&!revealed(i))return h+'</div>'+ticketHTML(i);
  if(p.type==='order'){const n=p.items.length,ord=shuf(i*31+7,n),seq=a.seq||[];
   h+='<section class="card q"><h3>ترتيب المجموعة:</h3>'+[...Array(n).keys()].map(k=>{const v=seq[k];const c=chk?(v===k?' right':' wrong'):'';return '<div class="slot'+(v!=null?' filled':'')+c+'"'+(v!=null&&!chk?' data-un="'+k+'" role="button" tabindex="0"':'')+'><span class="n">'+AR(k+1)+'</span><span>'+(v!=null?p.items[v]:'<span class="muted">…</span>')+'</span></div>'}).join('');
   if(!chk)h+='<h3>الخطوات (اضغطن بالترتيب):</h3><div class="pool">'+ord.filter(v=>!seq.includes(v)).map(v=>'<button data-add="'+v+'">'+p.items[v]+'</button>').join('')+'</div>';
@@ -341,7 +340,7 @@ function vPart(){
   h+='<section class="card q"><h3>'+AR(qi+1)+'. '+Q[0]+'</h3>'+(Q[4]?'<img class="qimg" src="'+Q[4]+'" alt="">':'')+'<div class="ans">'+ord.map(oi=>{let c='';if(chk){if(oi===Q[2])c='right';else if(pk===oi)c='wrong'}return '<button data-q="'+qi+'" data-o="'+oi+'" aria-pressed="'+(pk===oi)+'"'+(c?' class="'+c+'"':'')+(chk?' disabled':'')+'>'+Q[1][oi]+'</button>'}).join('')+'</div>'+(chk?'<div class="fb '+(pk===Q[2]?'ok">✓ ':'no">✗ ')+Q[3]+'</div>':'')+'</section>'})}
  h+='</div>';
  if(!chk){const full=complete(p,a);h+='<div class="row"><button class="btn ghost" data-list>↩ قائمة الأنشطة</button>'+(p.type==='order'&&(a.seq||[]).length?'<button class="btn ghost" data-clear>مسح الترتيب</button>':'')+approveBtn(i,full)+'</div>'+(G.by?'<p class="who">آخر إجابة: '+esc(first(G.by))+'</p>':'')}
- else{const sc=G.done[i],pm=PM(p);h+='<section class="card score"><div style="font-size:1.5rem">'+'⭐'.repeat(Math.round(sc/pm*5))+'</div><div class="big">'+AR(sc)+' من '+AR(pm)+'</div>'+tkResHTML(i)+'<p>'+(sc===pm?'ممتاز! العلامة الكاملة للمجموعة 🎉':'راجعن التصحيح معًا 💪')+'</p><div class="row" style="justify-content:center">'+(isC()||leaderName()===P.n?'<button class="btn ghost" data-retry>إعادة المحاولة (للقائدة)</button>':'')+'<button class="btn" data-list>العودة لقائمة الأنشطة</button></div></section>'}
+ else{const sc=G.done[i],pm=PM(p);h+='<section class="card score"><div style="font-size:1.5rem">'+'⭐'.repeat(Math.round(sc/pm*5))+'</div><div class="big">'+AR(sc)+' من '+AR(pm)+'</div>'+tkResHTML(i)+'<p>'+(sc===pm?'ممتاز! العلامة الكاملة للمجموعة 🎉':'راجعن التصحيح معًا 💪')+'</p><div class="row" style="justify-content:center">'+(isC()||leaderName()===P.n?'<button class="btn ghost" data-retry>إعادة المحاولة (للقائدة)</button>':'')+'<button class="btn" data-list>العودة لقائمة الأنشطة</button></div></section>'+ticketHTML(i)}
  return h}
 function tkResHTML(i){const ns=isC()?P.m:(P.n==='__teacher__'?memList():[P.n]);const r=ns.filter(n=>tkOf(n,i));if(!r.length)return '';return '<p style="font-weight:800">🎟️ '+(ns.length===1&&!isC()&&P.n!=='__teacher__'?'سؤالك الفردي: '+(tkOf(P.n,i)[1]?'✅ صح، أحسنتِ!':'❌ غلط، راجعي التصحيح'):'الأسئلة الفردية: '+r.map(n=>esc(first(n))+' '+(tkOf(n,i)[1]?'✅':'❌')).join(' · '))+'</p>'}
 function complete(p,a){if(p.type==='order')return (a.seq||[]).length===p.items.length;const n=PM(p);for(let k=0;k<n;k++)if(a[k]==null)return false;return true}
@@ -412,7 +411,7 @@ function weekHTML(){const st=T.wk.start||wkStart(),en=addD(st,6),rows=T.wk.cls==
  const days=[...new Set(T.wk.raw.map(r=>r.session_date))];
  h+='<p style="font-weight:800">الشعبة <bdi>'+AR(T.c)+'</bdi> · من '+fmtD(st)+' إلى '+fmtD(en)+' · أيام الحصص المسجلة: '+AR(days.length)+' ('+days.map(fmtD).join('، ')+') · شاركن: '+AR(rows.filter(o=>!o.ab).length)+(rows.some(o=>o.ab)?' · ما دخلن: '+AR(rows.filter(o=>o.ab).length):'')+'</p>';
  h+='<div style="overflow-x:auto"><table class="rt"><thead><tr><th>#</th><th>اسم الطالبة</th><th>المجموعة</th><th>أيام الحضور</th><th>الدروس</th><th>الأنشطة اللي حلّتها مع مجموعتها</th><th>عدد مشاركاتها بنفسها</th><th>🎟️ أسئلتها الفردية</th><th>درجة مجموعتها</th><th>التقييم</th></tr></thead><tbody>'+rows.map((o,k)=>'<tr><td>'+AR(k+1)+'</td><td class="mm">'+esc(o.n)+'</td><td>'+([...o.g].map(tname).join('<br>')||'—')+(o.g.size>1?' <span class="dup">⚠️</span>':'')+'</td><td>'+AR(o.days.size)+' من '+AR(days.length)+'</td><td style="font-size:.8rem">'+[...o.les].join('<br>')+'</td><td>'+AR(o.acts)+'</td><td><b>'+AR(o.tc)+'</b></td><td>'+(o.tq?AR(o.tok)+' صح من '+AR(o.tq):'—')+'</td><td>'+AR(o.sc)+' من '+AR(o.mx)+'</td><td>'+wkEval(o)+'</td></tr>').join('')+'</tbody></table></div>';
- h+='<p class="muted" style="font-size:.8rem">«عدد مشاركاتها بنفسها» = كم مرة اختارت الطالبة أو عدّلت إجابة. «🎟️ أسئلتها الفردية» = سؤال تجاوبه كل طالبة لحالها بعد كل نشاط، عشان ما تأخذ درجة المجموعة وهي ما فهمت، وما تنظلم الهادية اللي فاهمة. الطالبة اللي ما يطلع اسمها هنا ما دخلت أي نشاط انعتمد هذا الأسبوع. ⚠️ جنب المجموعة = دخلت أكثر من مجموعة. إذا تكرر اسم طالبة بكتابتين مختلفتين، اعتبريهم نفس الطالبة.</p>';
+ h+='<p class="muted" style="font-size:.8rem">«عدد مشاركاتها بنفسها» = كم مرة اختارت الطالبة أو عدّلت إجابة. «🎟️ أسئلتها الفردية» = تحدّي فردي اختياري بعد كل نشاط، اللي تجاوبه يوضّح فهمها لحالها (اللي ما جاوبت ما ينقص عليها شي). الطالبة اللي ما يطلع اسمها هنا ما دخلت أي نشاط انعتمد هذا الأسبوع. ⚠️ جنب المجموعة = دخلت أكثر من مجموعة. إذا تكرر اسم طالبة بكتابتين مختلفتين، اعتبريهم نفس الطالبة.</p>';
  h+='<div class="sig printonly"><span>توقيع المعلمة: ....................</span><span>التاريخ: '+fmtD(today())+'</span></div>';
  return h+'<div class="row noprint"><button class="btn" data-wkcsv>⬇️ تحميل تقرير الأسبوع (Excel)</button><button class="btn ghost" data-wkprint>🖨️ طباعة أو حفظ PDF</button></div></section>'}
 function dlWeek(){const q=v=>'"'+String(v).replace(/"/g,'""')+'"',st=T.wk.start||wkStart(),en=addD(st,6),rows=T.wk.rows||[],days=[...new Set(T.wk.raw.map(r=>r.session_date))],D=d=>String(d).split('-').reverse().join('/'),tn=g=>tname(g).replace(/^\S+\s/,'');
@@ -517,7 +516,7 @@ root.addEventListener('click',e=>{
  const isLead=isC()||leaderName()===P.n;
  if('retry' in d){if(!isLead){toast('إعادة المحاولة للقائدة فقط 👑');return}G.rtAt[i]=stamp();clean(G);G.ans[i]={};G.pst[i]=stamp();commit();render();return}
  if(d.tkn!=null&&isC()){TKSEL=d.tkn;render();return}
- if(d.tk!=null&&G.done[i]!=null){const who=isC()?TKSEL:P.n;if(!who||tkOf(who,i))return;const t=ticket(i,who),ok=t.opts[+d.tk][1]?1:0;G.tk[who]=G.tk[who]||{};G.tk[who][i]=[+d.tk,ok,stamp()];TKSEL=null;commit(who);toast(ok?'✅ إجابة صحيحة! تنحسب لك':'❌ إجابة غلط، شوفي التصحيح');clearTimeout(TKSAVE[i]);TKSAVE[i]=setTimeout(()=>saveRes(i,G.done[i],PM(p)),1500);render();return}
+ if(d.tk!=null&&G.done[i]!=null){const who=isC()?TKSEL:P.n;if(!who||tkOf(who,i))return;const t=ticket(i,who),ok=t.opts[+d.tk][1]?1:0;G.tk[who]=G.tk[who]||{};G.tk[who][i]=[+d.tk,ok,stamp()];TKSEL=null;commit(who);toast(ok?'✅ إجابة صحيحة! أحسنتِ':'❌ إجابة غلط، راجعي التصحيح');clearTimeout(TKSAVE[i]);TKSAVE[i]=setTimeout(()=>saveRes(i,G.done[i],PM(p)),1500);render();return}
  if('rv' in d&&G.done[i]!=null){if(!isLead){toast('هذا للقائدة فقط 👑');return}G.rv[i]=stamp();commit();saveRes(i,G.done[i],PM(p));render();return}
  if(G.done[i]!=null)return;
  if(d.add!=null){NEWFILL=true;setAns(i,'seq',(a.seq||[]).concat(+d.add));chg(i);return}
