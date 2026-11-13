@@ -163,7 +163,7 @@ function theme(L){const r=document.documentElement.style;r.setProperty('--c1',L?
 function hero(L,sub){return '<header class="hero"><span class="e">'+(L?L.emoji:'🤝')+'</span><div><small>'+(L?L.small:'أحياء ١ · '+SCHOOL)+'</small><h1>'+(L?L.title:'موقع الأنشطة الجماعية')+'</h1><small>'+(sub||(isC()?'حلّن مع بعض على جهاز المجموعة داخل الفصل 🏫🤝':'حلّي مع مجموعتك في نفس اللحظة، كل واحدة من جهازها 🤝'))+'</small></div></header>'}
 const foot='<p class="foot">إعداد المعلمة '+TEACHER+' · '+SCHOOL+'</p>';
 let P=LS.get('me',{});
-let step=0,CHO=null;const CHAPS=[{t:'الفصل السادس',e:'📚',sub:'خصائص الحيوانات (١) و (٢) و (٣)',keys:['AN1','AN2','AN3']}];
+let step=0,CHO=null;const CHAPS=[{t:'الفصل السادس',e:'📚',sub:'خصائص الحيوانات · مستويات بناء الجسم · الإسفنجيات',keys:['AN1','AN2','AN3','ISF','BDY']}];
 function crumbs(){const L=P.l!=null?LESSONS[P.l]:null,cs=step===5?4:step;const it=[['🏫','الشعبة',P.c&&step>0?AR(P.c):''],['📱','طريقة الحل',step>1?(isC()?'جهاز للمجموعة':'كل وحدة من جهازها'):''],['👤','الاسم',step>2?(isC()?'—':esc(first(P.n))):''],['📘','الدرس',step>3&&L?L.title:''],['🤝','المجموعة','']];
  return '<ol class="crumbs" aria-label="خطوات الدخول">'+it.map((x,k)=>'<li class="'+(k<cs?'dn':k===cs?'cur':'')+'"><span class="n">'+(k<cs?'✓':AR(k+1))+'</span><span>'+x[0]+' '+x[1]+(x[2]?'<small>'+x[2]+'</small>':'')+'</span></li>').join('')+'</ol>'}
 function vStart(){
